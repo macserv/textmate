@@ -13,27 +13,30 @@ typedef std::shared_ptr<std::remove_pointer<CGColorRef>::type> CGColorPtr;
 
 struct PUBLIC styles_t
 {
-	styles_t (CGColorPtr foreground, CGColorPtr background, CGColorPtr caret, CGColorPtr selection, CTFontPtr font, bool underlined, bool strikethrough, bool misspelled) : _foreground(foreground), _background(background), _caret(caret), _selection(selection), _font(font), _underlined(underlined), _strikethrough(strikethrough), _misspelled(misspelled) { }
+	styles_t (CGColorPtr foreground, CGColorPtr background, CGColorPtr caret, CGColorPtr selection, CGColorPtr lineHighlight, CTFontPtr font, bool underlined, bool strikethrough, bool misspelled) : _foreground(foreground), _background(background), _caret(caret), _selection(selection), _lineHighlight(lineHighlight), _font(font), _underlined(underlined), _strikethrough(strikethrough), _misspelled(misspelled) { }
 
 	styles_t () = default;
-	CGColorRef foreground () const { return _foreground.get(); }
-	CGColorRef background () const { return _background.get(); }
-	CGColorRef caret () const      { return _caret.get(); }
-	CGColorRef selection () const  { return _selection.get(); }
-	CTFontRef font () const        { return _font.get(); }
-	bool underlined () const       { return _underlined; }
-	bool strikethrough () const    { return _strikethrough; }
-	bool misspelled () const       { return _misspelled; }
+	
+	CGColorRef foreground () const    { return _foreground.get(); }
+	CGColorRef background () const    { return _background.get(); }
+	CGColorRef caret () const         { return _caret.get(); }
+	CGColorRef selection () const     { return _selection.get(); }
+	CGColorRef lineHighlight () const { return _lineHighlight.get(); }
+	CTFontRef  font () const          { return _font.get(); }
+	bool       underlined () const    { return _underlined; }
+	bool       strikethrough () const { return _strikethrough; }
+	bool       misspelled () const    { return _misspelled; }
 
 private:
 	CGColorPtr _foreground;
 	CGColorPtr _background;
 	CGColorPtr _caret;
 	CGColorPtr _selection;
-	CTFontPtr _font;
-	bool _underlined;
-	bool _strikethrough;
-	bool _misspelled;
+	CGColorPtr _lineHighlight;
+	CTFontPtr  _font;
+	bool       _underlined;
+	bool       _strikethrough;
+	bool       _misspelled;
 };
 
 struct PUBLIC gutter_styles_t
@@ -109,6 +112,7 @@ private:
 		color_info_t caret;
 		color_info_t selection;
 		color_info_t invisibles;
+		color_info_t lineHighlight;
 		bool_t bold;
 		bool_t italic;
 		bool_t underlined;

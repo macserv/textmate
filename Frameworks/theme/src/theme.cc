@@ -62,6 +62,7 @@ theme_t::decomposed_style_t theme_t::shared_styles_t::parse_styles (plist::dicti
 	get_key_path(plist, "settings.caret",           res.caret);
 	get_key_path(plist, "settings.selection",       res.selection);
 	get_key_path(plist, "settings.invisibles",      res.invisibles);
+	get_key_path(plist, "settings.lineHighlight",   res.lineHighlight);
 
 	bool flag;
 	res.misspelled = plist::get_key_path(plist, "settings.misspelled", flag) ? (flag ? bool_true : bool_false) : bool_unset;
@@ -87,11 +88,12 @@ std::vector<theme_t::decomposed_style_t> theme_t::global_styles (scope::scope_t 
 {
 	static struct { std::string name; theme_t::color_info_t decomposed_style_t::*field; } const colorKeys[] =
 	{
-		{ "foreground", &decomposed_style_t::foreground },
-		{ "background", &decomposed_style_t::background },
-		{ "caret",      &decomposed_style_t::caret      },
-		{ "selection",  &decomposed_style_t::selection  },
-		{ "invisibles", &decomposed_style_t::invisibles },
+		{ "foreground",    &decomposed_style_t::foreground    },
+		{ "background",    &decomposed_style_t::background    },
+		{ "caret",         &decomposed_style_t::caret         },
+		{ "selection",     &decomposed_style_t::selection     },
+		{ "invisibles",    &decomposed_style_t::invisibles    },
+		{ "lineHighlight", &decomposed_style_t::lineHighlight },
 	};
 
 	static struct { std::string name; bool_t decomposed_style_t::*field; } const booleanKeys[] =
@@ -414,12 +416,13 @@ styles_t const& theme_t::styles_for_scope (scope::scope_t const& scope) const
 				font.reset(newFont, CFRelease);
 		}
 
-		CGColorPtr foreground = OakColorCreateFromThemeColor(base.foreground, _styles->_color_space) ?: CGColorPtr(CGColorCreate(_styles->_color_space, (CGFloat[4]){   0,   0,   0,   1 }), CGColorRelease);
-		CGColorPtr background = OakColorCreateFromThemeColor(base.background, _styles->_color_space) ?: CGColorPtr(CGColorCreate(_styles->_color_space, (CGFloat[4]){   1,   1,   1,   1 }), CGColorRelease);
-		CGColorPtr caret      = OakColorCreateFromThemeColor(base.caret,      _styles->_color_space) ?: CGColorPtr(CGColorCreate(_styles->_color_space, (CGFloat[4]){   0,   0,   0,   1 }), CGColorRelease);
-		CGColorPtr selection  = OakColorCreateFromThemeColor(base.selection,  _styles->_color_space) ?: CGColorPtr(CGColorCreate(_styles->_color_space, (CGFloat[4]){ 0.5, 0.5, 0.5,   1 }), CGColorRelease);
+		CGColorPtr foreground    = OakColorCreateFromThemeColor(base.foreground,    _styles->_color_space) ?: CGColorPtr(CGColorCreate(_styles->_color_space, (CGFloat[4]){   0,   0,   0,   1 }), CGColorRelease);
+		CGColorPtr background    = OakColorCreateFromThemeColor(base.background,    _styles->_color_space) ?: CGColorPtr(CGColorCreate(_styles->_color_space, (CGFloat[4]){   1,   1,   1,   1 }), CGColorRelease);
+		CGColorPtr caret         = OakColorCreateFromThemeColor(base.caret,         _styles->_color_space) ?: CGColorPtr(CGColorCreate(_styles->_color_space, (CGFloat[4]){   0,   0,   0,   1 }), CGColorRelease);
+		CGColorPtr selection     = OakColorCreateFromThemeColor(base.selection,     _styles->_color_space) ?: CGColorPtr(CGColorCreate(_styles->_color_space, (CGFloat[4]){ 0.5, 0.5, 0.5,   1 }), CGColorRelease);
+		CGColorPtr lineHighlight = OakColorCreateFromThemeColor(base.lineHighlight, _styles->_color_space) ?: CGColorPtr(CGColorCreate(_styles->_color_space, (CGFloat[4]){ 0.2, 0.2, 0.2,   1 }), CGColorRelease);
 
-		styles_t res(foreground, background, caret, selection, font, base.underlined == bool_true, base.strikethrough == bool_true, base.misspelled == bool_true);
+		styles_t res(foreground, background, caret, selection, lineHighlight, font, base.underlined == bool_true, base.strikethrough == bool_true, base.misspelled == bool_true);
 		styles = _cache.insert(std::make_pair(scope, res)).first;
 	}
 	return styles->second;
@@ -494,11 +497,12 @@ theme_t::decomposed_style_t& theme_t::decomposed_style_t::operator+= (theme_t::d
 	font_name  = rhs.font_name != NULL_STR    ? rhs.font_name : font_name;
 	font_size  = rhs.font_size > 0            ? rhs.font_size : font_size * fabs(rhs.font_size);
 
-	foreground = rhs.foreground.is_blank()    ? foreground : rhs.foreground;
-	background = rhs.background.is_blank()    ? background : blend(background, rhs.background);
-	caret      = rhs.caret.is_blank()         ? caret      : rhs.caret;
-	selection  = rhs.selection.is_blank()     ? selection  : rhs.selection;
-	invisibles = rhs.invisibles.is_blank()    ? invisibles : rhs.invisibles;
+	foreground    = rhs.foreground.is_blank()    ? foreground    : rhs.foreground;
+	background    = rhs.background.is_blank()    ? background    : blend(background, rhs.background);
+	caret         = rhs.caret.is_blank()         ? caret         : rhs.caret;
+	selection     = rhs.selection.is_blank()     ? selection     : rhs.selection;
+	invisibles    = rhs.invisibles.is_blank()    ? invisibles    : rhs.invisibles;
+	lineHighlight = rhs.lineHighlight.is_blank() ? lineHighlight : rhs.lineHighlight;
 
 	bold          = rhs.bold          == bool_unset ? bold          : rhs.bold;
 	italic        = rhs.italic        == bool_unset ? italic        : rhs.italic;
