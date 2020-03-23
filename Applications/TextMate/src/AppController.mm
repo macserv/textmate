@@ -296,6 +296,8 @@ BOOL HasDocumentWindow (NSArray* windows)
 				{ /* -------- */ },
 				{ @"View Source",            @selector(viewSource:),           @"u", .modifierFlags = NSEventModifierFlagCommand|NSEventModifierFlagOption },
 				{ @"Enter Full Screen",      @selector(toggleFullScreen:),     @"f", .modifierFlags = NSEventModifierFlagCommand|NSEventModifierFlagControl },
+				{ /* -------- */ },
+				{ @"Customize Touch Bar…",   @selector(toggleTouchBarCustomizationPalette:) },
 			}
 		},
 		{ @"Navigate",
@@ -491,7 +493,7 @@ BOOL HasDocumentWindow (NSArray* windows)
 		NSApp.mainMenu = menu;
 
 	SoftwareUpdate* swUpdate = [SoftwareUpdate sharedInstance];
-	NSString* parms = [NSString stringWithFormat:@"v=%@&os=%zu.%zu.%zu", [[[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"] stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding], oak::os_major(), oak::os_minor(), oak::os_patch()];
+	NSString* parms = [NSString stringWithFormat:@"v=%@&os=%zu.%zu.%zu", [[[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"] stringByAddingPercentEncodingWithAllowedCharacters:NSCharacterSet.URLQueryAllowedCharacterSet], oak::os_major(), oak::os_minor(), oak::os_patch()];
 	[swUpdate setSignee:key_chain_t::key_t("org.textmate.duff", "Allan Odgaard", "-----BEGIN PUBLIC KEY-----\nMIIBtjCCASsGByqGSM44BAEwggEeAoGBAPIE9PpXPK3y2eBDJ0dnR/D8xR1TiT9m\n8DnPXYqkxwlqmjSShmJEmxYycnbliv2JpojYF4ikBUPJPuerlZfOvUBC99ERAgz7\nN1HYHfzFIxVo1oTKWurFJ1OOOsfg8AQDBDHnKpS1VnwVoDuvO05gK8jjQs9E5LcH\ne/opThzSrI7/AhUAy02E9H7EOwRyRNLofdtPxpa10o0CgYBKDfcBscidAoH4pkHR\nIOEGTCYl3G2Pd1yrblCp0nCCUEBCnvmrWVSXUTVa2/AyOZUTN9uZSC/Kq9XYgqwj\nhgzqa8h/a8yD+ao4q8WovwGeb6Iso3WlPl8waz6EAPR/nlUTnJ4jzr9t6iSH9owS\nvAmWrgeboia0CI2AH++liCDvigOBhAACgYAFWO66xFvmF2tVIB+4E7CwhrSi2uIk\ndeBrpmNcZZ+AVFy1RXJelNe/cZ1aXBYskn/57xigklpkfHR6DGqpEbm6KC/47Jfy\ny5GEx+F/eBWEePi90XnLinytjmXRmS2FNqX6D15XNG1xJfjociA8bzC7s4gfeTUd\nlpQkBq2z71yitA==\n-----END PUBLIC KEY-----\n")];
 	[swUpdate setChannels:@{
 		kSoftwareUpdateChannelRelease:    [NSURL URLWithString:[NSString stringWithFormat:@"%s/releases/release?%@", REST_API, parms]],
@@ -612,8 +614,7 @@ BOOL HasDocumentWindow (NSArray* windows)
 {
 	D(DBF_AppController, bug("\n"););
 
-	if([NSWindow respondsToSelector:@selector(setAllowsAutomaticWindowTabbing:)]) // MAC_OS_X_VERSION_10_12
-		NSWindow.allowsAutomaticWindowTabbing = NO;
+	NSWindow.allowsAutomaticWindowTabbing = NO;
 
 	if([NSApp respondsToSelector:@selector(setAutomaticCustomizeTouchBarMenuItemEnabled)]) // MAC_OS_X_VERSION_10_12_1
 		NSApp.automaticCustomizeTouchBarMenuItemEnabled = YES;
@@ -799,7 +800,7 @@ BOOL HasDocumentWindow (NSArray* windows)
 				case find::ignore_whitespace:  active = [entry ignoreWhitespace];  enabled = ![entry regularExpression]; break;
 				case find::wrap_around:        active = [[NSUserDefaults standardUserDefaults] boolForKey:kUserDefaultsFindWrapAround]; break;
 			}
-			[item setState:(active ? NSOnState : NSOffState)];
+			[item setState:(active ? NSControlStateValueOn : NSControlStateValueOff)];
 		}
 		else
 		{

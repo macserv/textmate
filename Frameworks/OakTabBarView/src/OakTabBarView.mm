@@ -666,14 +666,6 @@ static void* kOakTabViewSelectedContext  = &kOakTabViewSelectedContext;
 // =================
 
 @implementation OakTabBarView
-+ (void)initialize
-{
-	[[NSUserDefaults standardUserDefaults] registerDefaults:@{
-		kUserDefaultsTabItemMinWidthKey: @(120),
-		kUserDefaultsTabItemMaxWidthKey: @(250),
-	}];
-}
-
 + (id)defaultAnimationForKey:(NSString*)key
 {
 	if([key isEqualToString:@"tabLayoutAnimationProgress"])
@@ -688,6 +680,14 @@ static void* kOakTabViewSelectedContext  = &kOakTabViewSelectedContext;
 
 - (instancetype)initWithFrame:(NSRect)aRect
 {
+	static dispatch_once_t onceToken;
+	dispatch_once(&onceToken, ^{
+		[[NSUserDefaults standardUserDefaults] registerDefaults:@{
+			kUserDefaultsTabItemMinWidthKey: @(120),
+			kUserDefaultsTabItemMaxWidthKey: @(250),
+		}];
+	});
+
 	if(self = [super initWithFrame:aRect])
 	{
 		self.accessibilityRole  = NSAccessibilityTabGroupRole;
@@ -713,7 +713,7 @@ static void* kOakTabViewSelectedContext  = &kOakTabViewSelectedContext;
 
 - (NSSize)intrinsicContentSize
 {
-	return NSMakeSize(NSViewNoInstrinsicMetric, 23);
+	return NSMakeSize(NSViewNoIntrinsicMetric, 23);
 }
 
 - (BOOL)mouseDownCanMoveWindow
@@ -729,7 +729,7 @@ static void* kOakTabViewSelectedContext  = &kOakTabViewSelectedContext;
 		_createNewTabButton.accessibilityLabel = @"Create new tab";
 		_createNewTabButton.image      = [NSImage imageNamed:NSImageNameAddTemplate];
 		_createNewTabButton.bordered   = NO;
-		_createNewTabButton.buttonType = NSMomentaryChangeButton;
+		_createNewTabButton.buttonType = NSButtonTypeMomentaryChange;
 		_createNewTabButton.toolTip    = @"Create new tab";
 		_createNewTabButton.action     = @selector(newTab:);
 		_createNewTabButton.target     = self;
@@ -860,7 +860,7 @@ static void* kOakTabViewSelectedContext  = &kOakTabViewSelectedContext;
 		}
 
 		if(tabItem.isSelected)
-			item.state = NSOnState;
+			item.state = NSControlStateValueOn;
 		else if(tabItem.isModified)
 			item.modifiedState = YES;
 	}
@@ -1337,7 +1337,10 @@ static void* kOakTabViewSelectedContext  = &kOakTabViewSelectedContext;
 	_currentLayout = newLayout;
 
 	for(OakTabView* tabView in existingTabViews.allValues)
+	{
+		tabView.tabItem.tabView = nil;
 		[tabView removeFromSuperview];
+	}
 
 	NSRect createNewTabButtonFrame = _createNewTabButton.frame;
 	CGFloat x = -1, y = NSMinY(self.bounds)+1, height = NSHeight(self.bounds)-1;

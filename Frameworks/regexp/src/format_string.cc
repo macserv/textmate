@@ -84,7 +84,7 @@ struct expand_visitor : boost::static_visitor<void>
 			for(size_t i = 0; i < m.size(); ++i)
 			{
 				if(!m.did_match(i))
-					eclipsed.erase(std::to_string(i));
+					eclipsed.insert(std::to_string(i));
 			}
 
 			auto getVariable = [&](std::string const& name, std::string const& fallback) -> std::string {
@@ -292,7 +292,6 @@ struct expand_visitor : boost::static_visitor<void>
 			if(v.change & parser::transform::kDuration)
 				value = format_duration(value);
 
-#if defined(MAC_OS_X_VERSION_10_12) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_12)
 			if(v.change & parser::transform::kDirname)
 			{
 				char buf[MAXPATHLEN];
@@ -304,7 +303,7 @@ struct expand_visitor : boost::static_visitor<void>
 				char buf[MAXPATHLEN];
 				value = basename_r(value.c_str(), buf) ?: value;
 			}
-#endif
+
 			res += value;
 		}
 	}

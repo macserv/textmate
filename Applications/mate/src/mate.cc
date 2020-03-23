@@ -7,7 +7,7 @@
 #include <io/path.h>
 #include <plist/uuid.h>
 
-static char const* const AppVersion = "2.13";
+static char const* const AppVersion = "2.13.1";
 
 static char const* socket_path ()
 {
@@ -132,7 +132,7 @@ static void usage (FILE* io)
 	std::string pad(8 - std::min(strlen(getprogname()), size_t(8)), ' ');
 
 	fprintf(io,
-		"%1$s %2$s (" COMPILE_DATE ")\n"
+		"%1$s %2$s (" __DATE__ ")\n"
 		"Usage: %1$s [-wl<selection>t<filetype>m<name>rehv] [-u<identifier> | file ...]\n"
 		"       %1$s [-c<mark>] -s<mark>:<value> -l<line> [-u<identifier> | file ...]\n"
 		"       %1$s -c<mark> [-l<line>] [-u<identifier> | file ...]\n"
@@ -157,7 +157,7 @@ static void usage (FILE* io)
 		"\n"
 		"By default %1$s will wait for files to be closed if the command name\n"
 		"has a \"_wait\" suffix (e.g. via a symbolic link) or when used as a\n"
-		"filter like in this examples:\n"
+		"filter as in these examples:\n"
 		"\n"
 		"    ls *.tex|%1$s|sh%3$s-w implied\n"
 		"    %1$s -|cat -n   %3$s-w implied (read from stdin)\n"
@@ -178,7 +178,7 @@ static void usage (FILE* io)
 
 static void version ()
 {
-	fprintf(stdout, "%1$s %2$s (" COMPILE_DATE ")\n", getprogname(), AppVersion);
+	fprintf(stdout, "%1$s %2$s (" __DATE__ ")\n", getprogname(), AppVersion);
 }
 
 static void append (std::string const& str, std::vector<std::string>& v)

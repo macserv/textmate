@@ -59,7 +59,7 @@
 }
 @end
 
-@interface OakPasteboardChooser () <NSTextFieldDelegate, NSTableViewDelegate, NSSearchFieldDelegate>
+@interface OakPasteboardChooser () <NSWindowDelegate, NSTextFieldDelegate, NSTableViewDelegate, NSSearchFieldDelegate>
 {
 	NSTitlebarAccessoryViewController* _accessoryViewController;
 }
@@ -117,6 +117,7 @@ static NSMutableDictionary* SharedChoosers;
 		[[self.window standardWindowButton:NSWindowMiniaturizeButton] setHidden:YES];
 		[[self.window standardWindowButton:NSWindowZoomButton] setHidden:YES];
 		self.window.autorecalculatesKeyViewLoop = YES;
+		self.window.delegate                    = self;
 		self.window.level                       = NSFloatingWindowLevel;
 		self.window.title                       = windowTitle;
 
@@ -136,9 +137,9 @@ static NSMutableDictionary* SharedChoosers;
 
 		[self addTitlebarAccessoryView:titlebarView];
 
-		NSButton* deleteButton   = OakCreateButton(@"Delete", NSTexturedRoundedBezelStyle);
-		NSButton* clearAllButton = OakCreateButton(@"Clear History", NSTexturedRoundedBezelStyle);
-		NSButton* actionButton   = OakCreateButton(actionName, NSTexturedRoundedBezelStyle);
+		NSButton* deleteButton   = OakCreateButton(@"Delete", NSBezelStyleTexturedRounded);
+		NSButton* clearAllButton = OakCreateButton(@"Clear History", NSBezelStyleTexturedRounded);
+		NSButton* actionButton   = OakCreateButton(actionName, NSBezelStyleTexturedRounded);
 
 		deleteButton.action   = @selector(deleteForward:);
 		clearAllButton.action = @selector(clearAll:);
@@ -177,8 +178,9 @@ static NSMutableDictionary* SharedChoosers;
 	[_pasteboard removeObserver:self forKeyPath:@"currentEntry" context:kOakPasteboardChooserCurrentEntryBinding];
 	[[[_tableView tableColumns] lastObject] unbind:NSValueBinding];
 
-	_tableView.delegate = nil;
-	_tableView.target   = nil;
+	self.window.delegate = nil;
+	_tableView.delegate  = nil;
+	_tableView.target    = nil;
 }
 
 // =====================

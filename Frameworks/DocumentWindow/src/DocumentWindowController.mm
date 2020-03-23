@@ -57,7 +57,7 @@ static void show_command_error (std::string const& message, oak::uuid_t const& u
 	if(bundleItem)
 		[alert addButtonWithTitle:@"Edit Command"];
 
-	[alert beginSheetModalForWindow:window completionHandler:^(NSInteger button){
+	[alert beginSheetModalForWindow:window completionHandler:^(NSModalResponse button){
 		if(button == NSAlertSecondButtonReturn)
 			[[BundleEditor sharedInstance] revealBundleItem:bundleItem];
 	}];
@@ -171,7 +171,7 @@ static NSArray* const kObservedKeyPaths = @[ @"arrayController.arrangedObjects.p
 {
 	if((self = [super init]))
 	{
-		self.identifier   = [NSUUID UUID];
+		self.identifier = [NSUUID UUID];
 
 		self.tabBarView = [[OakTabBarView alloc] initWithFrame:NSZeroRect];
 		self.tabBarView.dataSource = self;
@@ -256,9 +256,7 @@ static NSArray* const kObservedKeyPaths = @[ @"arrayController.arrangedObjects.p
 	NSRect contentRect = [NSWindow contentRectForFrameRect:frameRect styleMask:self.window.styleMask];
 
 	CGFloat offset = NSMaxY(frameRect) - NSMaxY(contentRect);
-	frameRect.origin.y -= offset;
-	frameRect.origin.x += offset;
-	return frameRect;
+	return NSOffsetRect(frameRect, offset, -offset);
 }
 
 - (NSRect)frameRectForNewWindow
@@ -375,11 +373,8 @@ static NSArray* const kObservedKeyPaths = @[ @"arrayController.arrangedObjects.p
 		self.layoutView.fileBrowserOnRight = !self.layoutView.fileBrowserOnRight;
 	}
 
-	if(@available(macos 10.12, *))
-	{
-		BOOL disableTabBarCollapsingKey = [NSUserDefaults.standardUserDefaults boolForKey:kUserDefaultsDisableTabBarCollapsingKey];
-		self.titlebarViewController.hidden = !disableTabBarCollapsingKey && self.documents.count <= 1;
-	}
+	BOOL disableTabBarCollapsingKey = [NSUserDefaults.standardUserDefaults boolForKey:kUserDefaultsDisableTabBarCollapsingKey];
+	self.titlebarViewController.hidden = !disableTabBarCollapsingKey && self.documents.count <= 1;
 }
 
 - (void)applicationDidBecomeActiveNotification:(NSNotification*)aNotification
@@ -459,7 +454,7 @@ static NSArray* const kObservedKeyPaths = @[ @"arrayController.arrangedObjects.p
 	}
 
 	NSAlert* alert = [DocumentWindowController saveAlertForDocuments:someDocuments];
-	[alert beginSheetModalForWindow:self.window completionHandler:^(NSInteger returnCode){
+	[alert beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse returnCode){
 		switch(returnCode)
 		{
 			case NSAlertFirstButtonReturn: /* "Save" */
@@ -1502,11 +1497,8 @@ static NSArray* const kObservedKeyPaths = @[ @"arrayController.arrangedObjects.p
 			[self.tabBarView setSelectedTabIndex:MIN(_selectedTabIndex, _documents.count-1)];
 	}
 
-	if(@available(macos 10.12, *))
-	{
-		BOOL disableTabBarCollapsingKey = [NSUserDefaults.standardUserDefaults boolForKey:kUserDefaultsDisableTabBarCollapsingKey];
-		self.titlebarViewController.hidden = !disableTabBarCollapsingKey && self.documents.count <= 1;
-	}
+	BOOL disableTabBarCollapsingKey = [NSUserDefaults.standardUserDefaults boolForKey:kUserDefaultsDisableTabBarCollapsingKey];
+	self.titlebarViewController.hidden = !disableTabBarCollapsingKey && self.documents.count <= 1;
 
 	[self updateFileBrowserStatus:self];
 	[self updateTouchBarButtons];
@@ -1675,7 +1667,16 @@ static NSArray* const kObservedKeyPaths = @[ @"arrayController.arrangedObjects.p
 		{ /* -------- */ },
 		{ @"Sticky",                   @selector(toggleSticky:),           .representedObject = clickedTab    },
 	};
-	return MBCreateMenu(items);
+
+	NSMenu* menu = MBCreateMenu(items);
+	for(NSMenuItem* item in menu.itemArray)
+	{
+		// In fullscreen mode the window’s delegate is ignored as a target for menu actions, therefore we have to manually set the target for these menu items (as a workaround for what I can only assume is an OS bug)
+
+		if(!item.target && item.action)
+			item.target = [NSApp targetForAction:item.action];
+	}
+	return menu;
 }
 
 // =========================
@@ -2209,7 +2210,7 @@ static NSArray* const kObservedKeyPaths = @[ @"arrayController.arrangedObjects.p
 		if(aMenu.propertiesToUpdate & NSMenuPropertyItemImage)
 			item.image = document.icon;
 		if(i == _selectedTabIndex)
-			[item setState:NSOnState];
+			[item setState:NSControlStateValueOn];
 		else if(document.isDocumentEdited)
 			[item setModifiedState:YES];
 		++i;
@@ -2271,7 +2272,7 @@ static NSArray* const kObservedKeyPaths = @[ @"arrayController.arrangedObjects.p
 	else if([menuItem action] == @selector(moveFocus:))
 		[menuItem setTitle:self.window.firstResponder == self.textView ? @"Move Focus to File Browser" : @"Move Focus to Document"];
 	else if([menuItem action] == @selector(takeProjectPathFrom:))
-		[menuItem setState:[self.defaultProjectPath isEqualToString:[menuItem representedObject]] ? NSOnState : NSOffState];
+		[menuItem setState:[self.defaultProjectPath isEqualToString:[menuItem representedObject]] ? NSControlStateValueOn : NSControlStateValueOff];
 	else if([menuItem action] == @selector(performCloseOtherTabsXYZ:))
 		active = _documents.count > 1;
 	else if([menuItem action] == @selector(performCloseTabsToTheRight:))
@@ -2286,7 +2287,7 @@ static NSArray* const kObservedKeyPaths = @[ @"arrayController.arrangedObjects.p
 		{
 			active = [indexSet count] != 0;
 			if(active && [menuItem action] == @selector(toggleSticky:))
-				[menuItem setState:[self isDocumentSticky:_documents[indexSet.firstIndex]] ? NSOnState : NSOffState];
+				[menuItem setState:[self isDocumentSticky:_documents[indexSet.firstIndex]] ? NSControlStateValueOn : NSControlStateValueOff];
 		}
 	}
 
@@ -2297,6 +2298,7 @@ static NSArray* const kObservedKeyPaths = @[ @"arrayController.arrangedObjects.p
 // = Touch Bar =
 // =============
 
+static NSTouchBarItemIdentifier kTouchBarCustomizationIdentifier = @"com.macromates.TextMate.touch-bar.customization-identifier";
 static NSTouchBarItemIdentifier kTouchBarTabNavigationIdentifier = @"com.macromates.TextMate.touch-bar.tab-navigation";
 static NSTouchBarItemIdentifier kTouchBarNewTabItemIdentifier    = @"com.macromates.TextMate.touch-bar.new-tab";
 static NSTouchBarItemIdentifier kTouchBarQuickOpenItemIdentifier = @"com.macromates.TextMate.touch-bar.quick-open";
@@ -2308,6 +2310,16 @@ static NSTouchBarItemIdentifier kTouchBarFavoritesItemIdentifier = @"com.macroma
 	NSTouchBar* bar = [[NSTouchBar alloc] init];
 	bar.delegate = self;
 	bar.defaultItemIdentifiers = @[
+		NSTouchBarItemIdentifierOtherItemsProxy,
+		kTouchBarTabNavigationIdentifier,
+		kTouchBarNewTabItemIdentifier,
+		kTouchBarQuickOpenItemIdentifier,
+		NSTouchBarItemIdentifierFlexibleSpace,
+		kTouchBarFindItemIdentifier,
+		kTouchBarFavoritesItemIdentifier,
+	];
+	bar.customizationIdentifier = kTouchBarCustomizationIdentifier;
+	bar.customizationAllowedItemIdentifiers = @[
 		kTouchBarTabNavigationIdentifier,
 		kTouchBarNewTabItemIdentifier,
 		kTouchBarQuickOpenItemIdentifier,
@@ -2337,33 +2349,43 @@ static NSTouchBarItemIdentifier kTouchBarFavoritesItemIdentifier = @"com.macroma
 
 		res = [[NSCustomTouchBarItem alloc] initWithIdentifier:identifier];
 		res.view = _previousNextTouchBarControl;
+		res.customizationLabel = @"Back/Forward Tab";
 	}
 	else if([identifier isEqualToString:kTouchBarNewTabItemIdentifier])
 	{
+		NSImage* newTabImage = [NSImage imageNamed:@"TouchBarNewTabTemplate"];
+		newTabImage.accessibilityDescription = @"new tab";
 		res = [[NSCustomTouchBarItem alloc] initWithIdentifier:identifier];
-		res.view = [NSButton buttonWithImage:[NSImage imageNamed:@"TouchBarNewTabTemplate"] target:self action:@selector(newDocumentInTab:)];
+		res.view = [NSButton buttonWithImage:newTabImage target:self action:@selector(newDocumentInTab:)];
 		res.visibilityPriority = NSTouchBarItemPriorityNormal;
+		res.customizationLabel = @"New Tab";
 	}
 	else if([identifier isEqualToString:kTouchBarQuickOpenItemIdentifier])
 	{
+		NSImage* quickOpenImage = [NSImage imageNamed:@"TouchBarQuickOpenTemplate"];
+		quickOpenImage.accessibilityDescription = @"quick open";
 		res = [[NSCustomTouchBarItem alloc] initWithIdentifier:identifier];
-		res.view = [NSButton buttonWithImage:[NSImage imageNamed:@"TouchBarQuickOpenTemplate"] target:self action:@selector(goToFile:)];
+		res.view = [NSButton buttonWithImage:quickOpenImage target:self action:@selector(goToFile:)];
 		res.visibilityPriority = NSTouchBarItemPriorityNormal;
+		res.customizationLabel = @"Quick Open";
 	}
 	else if([identifier isEqualToString:kTouchBarFindItemIdentifier])
 	{
 		NSButton* findInProjectButton = [NSButton buttonWithImage:[NSImage imageNamed:NSImageNameTouchBarSearchTemplate] target:self action:@selector(orderFrontFindPanel:)];
 		findInProjectButton.tag = find_tags::in_project;
-
 		res = [[NSCustomTouchBarItem alloc] initWithIdentifier:identifier];
 		res.view = findInProjectButton;
 		res.visibilityPriority = NSTouchBarItemPriorityNormal;
+		res.customizationLabel = @"Find";
 	}
 	else if([identifier isEqualToString:kTouchBarFavoritesItemIdentifier])
 	{
+		NSImage* favoritesProjectsImage = [NSImage imageNamed:NSImageNameTouchBarBookmarksTemplate];
+		favoritesProjectsImage.accessibilityDescription = @"favorite projects";
 		res = [[NSCustomTouchBarItem alloc] initWithIdentifier:identifier];
-		res.view = [NSButton buttonWithImage:[NSImage imageNamed:NSImageNameTouchBarBookmarksTemplate] target:nil action:@selector(openFavorites:)];
+		res.view = [NSButton buttonWithImage:favoritesProjectsImage target:nil action:@selector(openFavorites:)];
 		res.visibilityPriority = NSTouchBarItemPriorityNormal;
+		res.customizationLabel = @"Favorite Projects";
 	}
 	return res;
 }

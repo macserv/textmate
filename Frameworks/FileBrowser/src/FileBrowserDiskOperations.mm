@@ -54,7 +54,7 @@
 				switch([alert runModal])
 				{
 					case NSAlertFirstButtonReturn: // Replace
-						forceFlag = alert.suppressionButton.state == NSOnState;
+						forceFlag = alert.suppressionButton.state == NSControlStateValueOn;
 						res = [self performOperation:op sourceURL:srcURL destinationURL:&destURL force:YES error:&error];
 					break;
 
@@ -81,7 +81,7 @@
 				switch([alert runModal])
 				{
 					case NSAlertFirstButtonReturn: // Delete
-						forceFlag = alert.suppressionButton.state == NSOnState;
+						forceFlag = alert.suppressionButton.state == NSControlStateValueOn;
 						res = [self performOperation:op sourceURL:srcURL destinationURL:&destURL force:YES error:&error];
 					break;
 
@@ -237,7 +237,7 @@
 		{
 			NSRegularExpression* regex = [NSRegularExpression regularExpressionWithPattern:@"^(.*?)(?: \\d+)?(\\.\\w+)?$" options:0 error:nil];
 			NSString* name = [regex stringByReplacingMatchesInString:base options:0 range:NSMakeRange(0, base.length) withTemplate:[NSString stringWithFormat:@"$1 %ld$2", ++i]];
-			destURL = [destURL.URLByDeletingLastPathComponent URLByAppendingPathComponent:name isDirectory:destURL.tmHasDirectoryPath];
+			destURL = [destURL.URLByDeletingLastPathComponent URLByAppendingPathComponent:name isDirectory:destURL.hasDirectoryPath];
 		}
 		[existingURLs addObject:destURL];
 		[res addObject:destURL];

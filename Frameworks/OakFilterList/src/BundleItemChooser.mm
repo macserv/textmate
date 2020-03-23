@@ -221,7 +221,7 @@ _OutputIter copy_menu_items (NSMenu* menu, _OutputIter out, NSArray* parentNames
 			if(![target respondsToSelector:@selector(validateMenuItem:)] || [target validateMenuItem:item])
 			{
 				NSString* title = [item title];
-				if([item state] == NSOnState)
+				if([item state] == NSControlStateValueOn)
 				{
 					if([[[item onStateImage] name] isEqualToString:@"NSMenuItemBullet"])
 							title = [title stringByAppendingString:@" (•)"];
@@ -694,6 +694,16 @@ static std::vector<bundles::item_ptr> relevant_items_in_scope (scope::context_t 
 	[self updateItems:self];
 }
 
+- (void)setHasSelection:(BOOL)flag
+{
+	if(_hasSelection != flag)
+	{
+		_hasSelection = flag;
+		_unfilteredItems = nil;
+		[self updateItems:self];
+	}
+}
+
 - (void)setKeyEquivalentString:(NSString*)aString
 {
 	if([_keyEquivalentString isEqualToString:aString])
@@ -964,9 +974,9 @@ static std::vector<bundles::item_ptr> relevant_items_in_scope (scope::context_t 
 - (BOOL)validateMenuItem:(NSMenuItem*)aMenuItem
 {
 	if(aMenuItem.action == @selector(takeBundleItemFieldFrom:))
-		aMenuItem.state = self.bundleItemField == aMenuItem.tag ? NSOnState : NSOffState;
+		aMenuItem.state = self.bundleItemField == aMenuItem.tag ? NSControlStateValueOn : NSControlStateValueOff;
 	else if(aMenuItem.action == @selector(toggleSearchAllScopes:))
-		aMenuItem.state = self.searchAllScopes ? NSOnState : NSOffState;
+		aMenuItem.state = self.searchAllScopes ? NSControlStateValueOn : NSControlStateValueOff;
 
 	return YES;
 }

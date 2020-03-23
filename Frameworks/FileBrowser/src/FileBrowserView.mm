@@ -565,8 +565,42 @@ static NSMutableIndexSet* MutableLongestCommonSubsequence (NSArray* lhs, NSArray
 
 	if(_fileItemObservers[url])
 	{
-		NSLog(@"%s *** already has observer for %@", sel_getName(_cmd), item.URL);
-		return;
+		// ================
+		// = Debug Output =
+		// ================
+
+		NSMutableArray<NSString*>* itemInfo = [NSMutableArray array];
+
+		NSMutableArray<FileItem*>* stack = [NSMutableArray arrayWithObject:self.fileItem];
+		while(FileItem* item = stack.firstObject)
+		{
+			if(item.isDirectory)
+			{
+				NSMutableString* info = [item.URL.path mutableCopy];
+				if(item == self.fileItem || [_outlineView isItemExpanded:item])
+					[info appendString:@" [expanded]"];
+				if([_fileItemObservers objectForKey:item.URL])
+					[info appendString:@" [observing]"];
+				if([_loadingURLs containsObject:item.URL])
+					[info appendString:@" [loading]"];
+				if(item.arrangedChildren || item.children)
+					[info appendFormat:@" [%lu / %lu children]", item.arrangedChildren.count, item.children.count];
+				[itemInfo addObject:info];
+			}
+
+			[stack removeObjectAtIndex:0];
+			if(NSArray<FileItem*>* children = item.arrangedChildren)
+				[stack addObjectsFromArray:children];
+		}
+
+		NSLog(@"%s *** Observer already exists for: %@\n%@", sel_getName(_cmd), url, [itemInfo componentsJoinedByString:@"\n"]);
+
+		// ===================================
+		// = Temporary (possible) workaround =
+		// ===================================
+
+		[FileItem removeObserver:_fileItemObservers[url]];
+		_fileItemObservers[url] = nil;
 	}
 
 	[_loadingURLs addObject:url];
@@ -1030,8 +1064,7 @@ static NSMutableIndexSet* MutableLongestCommonSubsequence (NSArray* lhs, NSArray
 		return NO;
 
 	[pboard clearContents];
-	[pboard writeObjects:urls];
-	return YES;
+	return [pboard writeObjects:urls];
 }
 
 // ===================
@@ -1091,7 +1124,7 @@ static NSDragOperation filter (NSDragOperation mask)
 
 	NSMutableDictionary<NSURL*, NSURL*>* urls = [NSMutableDictionary dictionary];
 	for(NSURL* url in [self URLsFromPasteboard:info.draggingPasteboard])
-		urls[url] = [newParent.resolvedURL URLByAppendingPathComponent:url.lastPathComponent isDirectory:op != NSDragOperationLink && url.tmHasDirectoryPath];
+		urls[url] = [newParent.resolvedURL URLByAppendingPathComponent:url.lastPathComponent isDirectory:op != NSDragOperationLink && url.hasDirectoryPath];
 
 	switch(op)
 	{

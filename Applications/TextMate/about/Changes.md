@@ -2,6 +2,115 @@ Title: Release Notes
 
 # Changes
 
+## 2019-12-28 (v2.0.6)
+
+* Rebuild using older SDK as possible workaround for newly introduced crash on macOS 10.13.
+
+## 2019-12-28 (v2.0.5)
+
+* Fixed: Double height of menu items with custom shortcuts on macOS 10.15.
+* Fixed: Crashes when using accessibility features on macOS 10.15.
+* Fixed: Context menu items for tabs would be disabled in full screen mode.
+* Fixed: Changes made to bundles on disk could go undetected on macOS 10.15.
+* Fixed: Delay when re-executing (bundle) commands on macOS 10.15. Starting with macOS 10.15 Apple will “call home” each time a new script/binary is executed, this can have a delay of more than a second, depending on internet connectivity/location. The result seems to be cached per inode, previously TextMate would use temporary files when executing scripts or shell commands (giving them a new inode on each run), it now re-uses these files to avoid the delay on repeated executions.
+* Fixed: In rare circumstances the tab bar (after launch) would have one tab missing even though space was allocated for this tab.
+* Fixed: File permission flags were lost when saving using the default atomic save algorithm.
+* Fixed: Disposing a nib using `"$DIALOG" nib --dispose «token»` would not close the nib’s window.
+* Fixed: Plug-ins not signed by Apple nor MacroMates would not be loaded.
+* See [all changes since v2.0](https://github.com/textmate/textmate/compare/v2.0...v2.0.5)
+
+## 2019-09-15 (v2.0)
+
+After far too long, there is no longer any qualifier suffix in the version string, so it is now finally just “TextMate 2.0”.
+
+I am grateful to everybody who has submitted a pull request, but the following people deserve a special mention:
+
+* Boris Dušek who is responsible for TextMate’s much improved accessibility support.
+* Jacob Bandes-Storch was a tremendous help replacing use of 32 bit APIs.
+* Ronald Wampler is just an all around great contributor.
+
+Not everything on the wishlist made it into 2.0, but TextMate remains a work in progress, so don’t despair :)
+
+*— Allan Odgaard*
+
+## 2019-08-26 (v2.0-rc.31)
+
+* Attempt at workaround for system stall when calling TextMate via mate.
+* Fix two buffer overflow bugs.
+* See [all changes since v2.0-rc.30](https://github.com/textmate/textmate/compare/v2.0-rc.30...v2.0-rc.31)
+
+## 2019-08-21 (v2.0-rc.30)
+
+* Add even more debug output for when TextMate is activated via mate.
+* Look for numeric prefix when duplicating a file and increase it if found. This means `001_file.txt` will become `002_file.txt` when duplicated in the file browser, instead of `001_file copy.txt`.
+* See [all changes since v2.0-rc.29](https://github.com/textmate/textmate/compare/v2.0-rc.29...v2.0-rc.30)
+
+## 2019-07-16 (v2.0-rc.29)
+
+* Add more debug output for when TextMate is activated via mate.
+* Miscellaneous minor fixes and tweaks.
+* See [all changes since v2.0-rc.28](https://github.com/textmate/textmate/compare/v2.0-rc.28...v2.0-rc.29)
+
+## 2019-07-13 (v2.0-rc.28)
+
+* Add debug output when TextMate is activated via `mate`.
+
+    The debug output from this build may help shed some light on a reported issue where there is a noticeable delay from calling `mate` in a terminal and until TextMate is brought to front.
+
+    If you have this issue first run `mate --version` to ensure that TextMate auto-updated it to `2.13.1-beta` (if not, go to Preferences → Terminal and uninstall/install it).
+
+    When the problem occurs, immediately run `date` in your terminal to get a timestamp to correlate with the debug log.
+
+    Then run this command to obtain the log:
+
+        log show --predicate 'subsystem = "com.macromates.TextMate" && category = "BringToFront"'
+
+    See `man log` for options such as `--start date/time` (to limit the query to e.g. the last 10 minutes).
+
+    Send the log (with as many details as possible) to support, or preferably (if you are on the mailing list): Follow up in the current thread about the issue.
+
+    Relevant information is whether or not you are using spaces and/or multiple screens.
+
+* See [all changes since v2.0-rc.27](https://github.com/textmate/textmate/compare/v2.0-rc.27...v2.0-rc.28)
+
+## 2019-07-08 (v2.0-rc.27)
+
+* Saving a file would lose the existing file’s permission flags.
+* See [all changes since v2.0-rc.26](https://github.com/textmate/textmate/compare/v2.0-rc.26...v2.0-rc.27)
+
+## 2019-07-08 (v2.0-rc.26)
+
+* Fix ability to (atomically) save files opened via their symbolic link.
+
+## 2019-07-07 (v2.0-rc.25)
+
+### Atomic Saving
+
+TextMate has been using `exchangedata` for atomic saving. This API allows writing an updated file to a new location and then swap the data part atomically with the old file’s. This ensures that the saved file is never in a partially written state, it preserves all file metadata (of which there is a lot), it preserves the file’s inode, so any potential hardlinks are not broken, etc.
+
+Unfortunately APFS, the new default file system for macOS, does not support `exchangedata`.
+
+TextMate falls back on `rename` when `exchangedata` is unavailable.
+
+This require that all metadata of the old file be copied to the new one, but there is no way to preserve the inode, so hardlinks will break, furthermore, as this is effectively a completely new file, the date of its parent diretory will be updated. Some software will monitor directories for new files and do a rescan each time the directory is updated, which previously would only be when files were created or deleted, but now each save may also trigger such rescan.
+
+For this reason, there is a new setting to control when and how TextMate should use atomic saving. It can be controlled by setting `atomicSave` in `.tm_properties` to one of the following values:
+
+- `always`: This is the default, it uses `NSFileManager` API (so no inode preservation even on HFS+).
+- `externalVolumes`: Disable atomic saving only for internal disks.
+- `remoteVolumes`: Use atomic saving only for remote drives (e.g. network mounts).
+- `never`: Never use atomic saving.
+- `legacy`: This will use `exchangedata` when available and fallback on `rename`. This option will be removed in the future.
+
+### Other Changes
+
+* Miscellaneous touch bar improvements. *[Ronald Wampler]*
+* There has been a few reports of missing content when expanding folders in the file browser. This build contains a workaround, so if you continue to experience this, [please let us know](https://macromates.com/support).
+* When searching for a regular expression with captures, we have `$1-n` available in the replacement (format) string. If this format string does further replacements with _optional_ captures (e.g. `${1/(foo)?|(bar)?/…/g}`) then `$1-n` would be inherited from the parent search for the non-matching optional captures.
+* TextMate is now using the hardened runtime, is notarized, and built with a deployment target of macOS 10.12.
+* Fix typo in character set name: ‘Korean – {ISO-2022-JP → ISO-2022-KR}’. *[DaeHyun Sung]*
+* See [all changes since v2.0-rc.23](https://github.com/textmate/textmate/compare/v2.0-rc.23...v2.0-rc.25)
+
 ## 2019-03-19 (v2.0-rc.23)
 
 * Some UI fixes for 10.13 and earlier (introduced in previous build(s)).

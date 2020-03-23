@@ -103,8 +103,8 @@ namespace document
 
 		static ng::index_t cap (ng::buffer_t const& buf, text::pos_t const& pos)
 		{
-			size_t line = oak::cap<size_t>(0, pos.line,   buf.lines()-1);
-			size_t col  = oak::cap<size_t>(0, pos.column, buf.eol(line) - buf.begin(line));
+			size_t line = std::clamp<size_t>(pos.line,   0, buf.lines()-1);
+			size_t col  = std::clamp<size_t>(pos.column, 0, buf.eol(line) - buf.begin(line));
 			ng::index_t res = buf.sanitize_index(buf.convert(text::pos_t(line, col)));
 			if(pos.offset && res.index < buf.size() && buf[res.index] == "\n")
 				res.carry = pos.offset;
@@ -903,7 +903,7 @@ NSString* OakDocumentBookmarkIdentifier           = @"bookmark";
 
 				[[NSNotificationCenter defaultCenter] postNotificationName:OakDocumentWillShowAlertNotification object:_document];
 				NSAlert* alert = [NSAlert tmAlertWithMessageText:[NSString stringWithFormat:@"The file “%@” is locked.", _document.displayName] informativeText:@"Do you want to overwrite it anyway?" buttons:@"Overwrite", @"Cancel", nil];
-				[alert beginSheetModalForWindow:_window completionHandler:^(NSInteger returnCode){
+				[alert beginSheetModalForWindow:_window completionHandler:^(NSModalResponse returnCode){
 					if(returnCode == NSAlertFirstButtonReturn)
 							context->set_make_writable(true);
 					else	_cancel = true;
@@ -917,7 +917,7 @@ NSString* OakDocumentBookmarkIdentifier           = @"bookmark";
 
 				[[NSNotificationCenter defaultCenter] postNotificationName:OakDocumentWillShowAlertNotification object:_document];
 				NSAlert* alert = [NSAlert tmAlertWithMessageText:[NSString stringWithFormat:@"No parent folder for “%@”.", _document.displayName] informativeText:[NSString stringWithFormat:@"Do you wish to create a folder at “%@”?", [NSString stringWithCxxString:path::with_tilde(path::parent(path))]] buttons:@"Create Folder", @"Cancel", nil];
-				[alert beginSheetModalForWindow:_window completionHandler:^(NSInteger returnCode){
+				[alert beginSheetModalForWindow:_window completionHandler:^(NSModalResponse returnCode){
 					if(returnCode == NSAlertFirstButtonReturn)
 							context->set_create_parent(true);
 					else	_cancel = true;
@@ -945,7 +945,7 @@ NSString* OakDocumentBookmarkIdentifier           = @"bookmark";
 					NSAlert* alert = [NSAlert tmAlertWithMessageText:[NSString stringWithFormat:@"Unable to save “%@” using “%@” as encoding.", _document.displayName, to_ns(charset)] informativeText:@"Please choose another encoding:" buttons:@"Save", @"Cancel", nil];
 					OakEncodingPopUpButton* encodingPopUp = [OakEncodingPopUpButton new];
 					[alert setAccessoryView:encodingPopUp];
-					[alert beginSheetModalForWindow:_window completionHandler:^(NSInteger returnCode){
+					[alert beginSheetModalForWindow:_window completionHandler:^(NSModalResponse returnCode){
 						if(returnCode == NSAlertFirstButtonReturn)
 								context->set_charset(to_s(encodingPopUp.encoding));
 						else	_cancel = true;
@@ -1057,7 +1057,7 @@ NSString* OakDocumentBookmarkIdentifier           = @"bookmark";
 		void will_replace (size_t from, size_t to, char const* buf, size_t len)
 		{
 			ng::buffer_t const& buffer = [_self buffer];
-			_should_sniff_file_type = from == oak::cap(buffer.begin(0), from, buffer.eol(0)) && _self.shouldSniffFileType;
+			_should_sniff_file_type = from == std::clamp(from, buffer.begin(0), buffer.eol(0)) && _self.shouldSniffFileType;
 			_file_type = _should_sniff_file_type ? file_type(buffer) : NULL_STR;
 		}
 

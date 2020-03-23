@@ -399,6 +399,11 @@ static BOOL HasPersistentStore = NO;
 
 - (void)checkForExternalPasteboardChanges
 {
+	// Do not touch clipboard unless we are active as CFPasteboardCopyData can stall
+	// See https://lists.macromates.com/textmate/2019-August/041109.html
+	if(!NSApp.isActive)
+		return;
+
 	D(DBF_Pasteboard, bug("new data: %s (%zd = %zd)\n", BSTR((self.changeCount != [[self pasteboard] changeCount])), (ssize_t)self.changeCount, (ssize_t)[[self pasteboard] changeCount]););
 	if(self.changeCount != [[self pasteboard] changeCount])
 	{
@@ -409,7 +414,7 @@ static BOOL HasPersistentStore = NO;
 			return;
 		}
 
-		NSString* onClipboard = [[self pasteboard] availableTypeFromArray:@[ NSStringPboardType ]] ? [[self pasteboard] stringForType:NSStringPboardType] : nil;
+		NSString* onClipboard = [[self pasteboard] availableTypeFromArray:@[ NSPasteboardTypeString ]] ? [[self pasteboard] stringForType:NSPasteboardTypeString] : nil;
 		NSString* inHistory = self.currentEntry.string;
 		self.changeCount = [[self pasteboard] changeCount];
 		if((onClipboard && !inHistory) || (onClipboard && inHistory && ![inHistory isEqualToString:onClipboard]))
@@ -432,8 +437,8 @@ static BOOL HasPersistentStore = NO;
 	{
 		if(!self.disableSystemPasteboardUpdating)
 		{
-			[[self pasteboard] declareTypes:@[ NSStringPboardType, OakPasteboardOptionsPboardType ] owner:nil];
-			[[self pasteboard] setString:newEntry.string forType:NSStringPboardType];
+			[[self pasteboard] declareTypes:@[ NSPasteboardTypeString, OakPasteboardOptionsPboardType ] owner:nil];
+			[[self pasteboard] setString:newEntry.string forType:NSPasteboardTypeString];
 			[[self pasteboard] setPropertyList:newEntry.options forType:OakPasteboardOptionsPboardType];
 		}
 		self.changeCount = [[self pasteboard] changeCount];
@@ -542,10 +547,10 @@ static BOOL HasPersistentStore = NO;
 	[self checkForExternalPasteboardChanges];
 
 	OakPasteboardEntry* res = self.currentEntry;
-	if(!res && [[self pasteboard] availableTypeFromArray:@[ NSStringPboardType ]])
+	if(!res && [[self pasteboard] availableTypeFromArray:@[ NSPasteboardTypeString ]])
 	{
 		res = (OakPasteboardEntry*)[[NSManagedObject alloc] initWithEntity:[NSEntityDescription entityForName:@"PasteboardEntry" inManagedObjectContext:self.managedObjectContext] insertIntoManagedObjectContext:nil];
-		res.string  = [[self pasteboard] stringForType:NSStringPboardType];
+		res.string  = [[self pasteboard] stringForType:NSPasteboardTypeString];
 		res.options = [[self pasteboard] availableTypeFromArray:@[ OakPasteboardOptionsPboardType ]] ? [[self pasteboard] propertyListForType:OakPasteboardOptionsPboardType] : nil;
 	}
 	return res;

@@ -5,7 +5,7 @@
 */
 
 #import "OakPasteboardSelector.h"
-#import <OakAppKit/OakAppKit.h>
+#import "OakAppKit.h"
 #import <ns/ns.h>
 #import <oak/oak.h>
 #import <oak/debug.h>
@@ -92,7 +92,7 @@ static size_t line_count (std::string const& text)
 
 - (size_t)lineCountForText:(NSString*)text
 {
-	return oak::cap<size_t>(1, line_count(to_s(text)), _maxLines);
+	return std::clamp<size_t>(line_count(to_s(text)), 1, _maxLines);
 }
 
 - (void)drawWithFrame:(NSRect)frame inView:(NSView*)controlView
@@ -207,18 +207,18 @@ static size_t line_count (std::string const& text)
 
 - (void)deleteBackward:(id)sender
 {
-	int selectedRow = [tableView selectedRow];
+	NSInteger selectedRow = [tableView selectedRow];
 	if(selectedRow == -1 || [entries count] <= 1)
 		return NSBeep();
 	[entries removeObjectAtIndex:selectedRow];
 	[tableView reloadData];
 	if([entries count] > 0)
-		[tableView selectRowIndexes:[NSIndexSet indexSetWithIndex:oak::cap(0, selectedRow - 1, (int)[entries count]-1)] byExtendingSelection:NO];
+		[tableView selectRowIndexes:[NSIndexSet indexSetWithIndex:std::clamp<NSInteger>(selectedRow - 1, 0, [entries count]-1)] byExtendingSelection:NO];
 }
 
 - (void)deleteForward:(id)sender
 {
-	int selectedRow = [tableView selectedRow];
+	NSInteger selectedRow = [tableView selectedRow];
 	if(selectedRow == -1 || [entries count] <= 1)
 		return NSBeep();
 	[entries removeObjectAtIndex:selectedRow];

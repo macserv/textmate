@@ -467,7 +467,7 @@ private:
 	ng::layout_t* _layout;
 };
 
-@interface OakTextView () <NSTextInputClient, NSDraggingSource, NSIgnoreMisspelledWords, NSChangeSpelling, NSTextFieldDelegate, NSAccessibilityCustomRotorItemSearchDelegate>
+@interface OakTextView () <NSTextInputClient, NSDraggingSource, NSIgnoreMisspelledWords, NSChangeSpelling, NSTextFieldDelegate, NSTouchBarDelegate, NSAccessibilityCustomRotorItemSearchDelegate>
 {
 	OBJC_WATCH_LEAKS(OakTextView);
 
@@ -718,22 +718,22 @@ static std::string shell_quote (std::vector<std::string> paths)
 	{
 		case 0:  format = @"No more %@ “%@”.";                break;
 		case 1:  format = didWrap ? @"Search wrapped." : nil; break;
-		default: format = @"%3$ld %@ “%@”.";                  break;
+		default: format = @"%3$@ %@ “%@”.";                   break;
 	}
 
 	NSString* classifier = (self.findOptions & find::regular_expression) ? @"matches for" : @"occurrences of";
 	if(format)
-		[self showToolTip:[NSString stringWithFormat:format, classifier, aFindString, aNumber]];
+		[self showToolTip:[NSString stringWithFormat:format, classifier, aFindString, [NSNumberFormatter localizedStringFromNumber:@(aNumber) numberStyle:NSNumberFormatterDecimalStyle]]];
 }
 
 - (void)didReplace:(NSUInteger)aNumber occurrencesOf:(NSString*)aFindString with:(NSString*)aReplacementString
 {
 	static NSString* const formatStrings[2][3] = {
-		{ @"Nothing replaced (no occurrences of “%@”).", @"Replaced one occurrence of “%@”.", @"Replaced %2$ld occurrences of “%@”." },
-		{ @"Nothing replaced (no matches for “%@”).",    @"Replaced one match of “%@”.",      @"Replaced %2$ld matches of “%@”."     }
+		{ @"Nothing replaced (no occurrences of “%@”).", @"Replaced one occurrence of “%@”.", @"Replaced %2$@ occurrences of “%@”." },
+		{ @"Nothing replaced (no matches for “%@”).",    @"Replaced one match of “%@”.",      @"Replaced %2$@ matches of “%@”."     }
 	};
 	NSString* format = formatStrings[(self.findOptions & find::regular_expression) ? 1 : 0][aNumber > 2 ? 2 : aNumber];
-	[self showToolTip:[NSString stringWithFormat:format, aFindString, aNumber]];
+	[self showToolTip:[NSString stringWithFormat:format, aFindString, [NSNumberFormatter localizedStringFromNumber:@(aNumber) numberStyle:NSNumberFormatterDecimalStyle]]];
 }
 @end
 
@@ -1043,7 +1043,7 @@ static std::string shell_quote (std::vector<std::string> paths)
 	CGFloat w = NSWidth([self visibleRect]), h = NSHeight([self visibleRect]);
 
 	CGFloat x = r.origin.x < w ? 0 : r.origin.x - w/2;
-	CGFloat y = oak::cap(NSMinY([self frame]), r.origin.y - (h-r.size.height)/2, NSHeight([self frame]) - h);
+	CGFloat y = std::clamp(r.origin.y - (h-r.size.height)/2, NSMinY(self.frame), NSHeight(self.frame) - h);
 
 	[self scrollRectToVisible:CGRectMake(round(x), round(y), w, h)];
 }
@@ -1094,25 +1094,25 @@ static std::string shell_quote (std::vector<std::string> paths)
 		x = r.origin.x < w/2 ? 0 : r.origin.x - 5*r.size.width;
 	}
 
-	if(oak::cap<CGFloat>(y + h - 1.5*r.size.height, r.origin.y, y + h + 1.5*r.size.height) == r.origin.y) // scroll down
+	if(std::clamp<CGFloat>(r.origin.y, y + h - 1.5*r.size.height, y + h + 1.5*r.size.height) == r.origin.y) // scroll down
 	{
 		D(DBF_OakTextView_ViewRect, bug("scroll down\n"););
 		y = r.origin.y + 1.5*r.size.height - h;
 	}
-	else if(oak::cap<CGFloat>(y - 3*r.size.height, r.origin.y, y + 0.5*r.size.height) == r.origin.y) // scroll up
+	else if(std::clamp<CGFloat>(r.origin.y, y - 3*r.size.height, y + 0.5*r.size.height) == r.origin.y) // scroll up
 	{
 		D(DBF_OakTextView_ViewRect, bug("scroll up\n"););
 		y = r.origin.y - 0.5*r.size.height;
 	}
-	else if(oak::cap(y, r.origin.y, y + h) != r.origin.y) // center y
+	else if(std::clamp(r.origin.y, y, y + h) != r.origin.y) // center y
 	{
 		y = r.origin.y - (h-r.size.height)/2;
 	}
 
 doScroll:
 	CGRect b = [self bounds];
-	x = oak::cap(NSMinX(b), x, NSMaxX(b) - w);
-	y = oak::cap(NSMinY(b), y, NSMaxY(b) - h);
+	x = std::clamp(x, NSMinX(b), NSMaxX(b) - w);
+	y = std::clamp(y, NSMinY(b), NSMaxY(b) - h);
 
 	NSClipView* contentView = [[self enclosingScrollView] contentView];
 	if([contentView respondsToSelector:@selector(_extendNextScrollRelativeToCurrentPosition)])
@@ -1218,10 +1218,18 @@ doScroll:
 	//     similar to basic_tree_t for conversion between UTF-8 and UTF-16 indexes.
 	//     Currently poor performance for large documents (O(N)) would then get to O(log(N))
 	//     Also currently copy of whole text is created here, which is not optimal
-	std::string const text = documentView->substr(0, range.max().index);
-	char const* base = text.data();
-	NSUInteger location = utf16::distance(base, base + range.min().index);
-	NSUInteger length   = utf16::distance(base + range.min().index, base + range.max().index);
+
+	size_t to = std::min(range.max().index, documentView->size());
+	if(to == 0)
+		return NSMakeRange(0, 0);
+
+	std::string const text = documentView->substr(0, to);
+	size_t from = std::min(range.min().index, text.size());
+
+	crash_reporter_info_t info("%s %s, actual %zu-%zu", sel_getName(_cmd), to_s(range).c_str(), from, to);
+
+	NSUInteger location = utf16::distance(text.data(), text.data() + from);
+	NSUInteger length   = utf16::distance(text.data() + from, text.data() + text.size());
 	return NSMakeRange(location, length);
 }
 
@@ -1483,8 +1491,8 @@ doScroll:
 
 	std::for_each(lbegin, lend, [=](links_t::iterator::value_type const& pair){
 		ng::range_t range = pair.second.range;
-		range.first = oak::cap(ng::index_t(from), range.min(), ng::index_t(to));
-		range.last  = oak::cap(ng::index_t(from), range.max(), ng::index_t(to));
+		range.first = std::clamp(range.min(), ng::index_t(from), ng::index_t(to));
+		range.last  = std::clamp(range.max(), ng::index_t(from), ng::index_t(to));
 		if(!range.empty())
 		{
 			range.first.index -= from;
@@ -2038,7 +2046,7 @@ static void update_menu_key_equivalents (NSMenu* menu, std::multimap<std::string
 		}];
 	});
 
-	[NSApp registerServicesMenuSendTypes:@[ NSStringPboardType ] returnTypes:@[ NSStringPboardType ]];
+	[NSApp registerServicesMenuSendTypes:@[ NSPasteboardTypeString ] returnTypes:@[ NSPasteboardTypeString ]];
 }
 
 // ======================
@@ -2047,32 +2055,30 @@ static void update_menu_key_equivalents (NSMenu* menu, std::multimap<std::string
 
 - (id)validRequestorForSendType:(NSString*)sendType returnType:(NSString*)returnType
 {
-	if([sendType isEqualToString:NSStringPboardType] && [self hasSelection] && !macroRecordingArray)
+	if([sendType isEqualToString:NSPasteboardTypeString] && [self hasSelection] && !macroRecordingArray)
 		return self;
-	if(!sendType && [returnType isEqualToString:NSStringPboardType] && !macroRecordingArray)
+	if(!sendType && [returnType isEqualToString:NSPasteboardTypeString] && !macroRecordingArray)
 		return self;
 	return [super validRequestorForSendType:sendType returnType:returnType];
 }
 
 - (BOOL)writeSelectionToPasteboard:(NSPasteboard*)pboard types:(NSArray*)types
 {
-	BOOL res = NO;
-	if([self hasSelection] && [types containsObject:NSStringPboardType])
-	{
-		std::vector<std::string> v;
-		ng::ranges_t const ranges = ng::dissect_columnar(*documentView, documentView->ranges());
-		for(auto const& range : ranges)
-			v.push_back(documentView->substr(range.min().index, range.max().index));
+	if(![self hasSelection])
+		return NO;
 
-		[pboard declareTypes:@[ NSStringPboardType ] owner:nil];
-		res = [pboard setString:[NSString stringWithCxxString:text::join(v, "\n")] forType:NSStringPboardType];
-	}
-	return res;
+	std::vector<std::string> v;
+	ng::ranges_t const ranges = ng::dissect_columnar(*documentView, documentView->ranges());
+	for(auto const& range : ranges)
+		v.push_back(documentView->substr(range.min().index, range.max().index));
+
+	[pboard clearContents];
+	return [pboard writeObjects:@[ to_ns(text::join(v, "\n")) ]];
 }
 
 - (BOOL)readSelectionFromPasteboard:(NSPasteboard*)pboard
 {
-	if(NSString* str = [pboard stringForType:[pboard availableTypeFromArray:@[ NSStringPboardType ]]])
+	if(NSString* str = [pboard stringForType:[pboard availableTypeFromArray:@[ NSPasteboardTypeString ]]])
 	{
 		AUTO_REFRESH;
 		documentView->insert(to_s(str));
@@ -2869,8 +2875,8 @@ static void update_menu_key_equivalents (NSMenu* menu, std::multimap<std::string
 
 - (find::options_t)incrementalSearchOptions
 {
-	BOOL ignoreCase = self.liveSearchView.ignoreCaseCheckBox.state == NSOnState;
-	BOOL wrapAround = self.liveSearchView.wrapAroundCheckBox.state == NSOnState;
+	BOOL ignoreCase = self.liveSearchView.ignoreCaseCheckBox.state == NSControlStateValueOn;
+	BOOL wrapAround = self.liveSearchView.wrapAroundCheckBox.state == NSControlStateValueOn;
 	return (ignoreCase ? find::ignore_case : find::none) | (wrapAround ? find::wrap_around : find::none) | find::ignore_whitespace;
 }
 
@@ -2965,6 +2971,78 @@ static void update_menu_key_equivalents (NSMenu* menu, std::multimap<std::string
 
 // ============================
 
+// =============
+// = Touch Bar =
+// =============
+
+static NSTouchBarItemIdentifier kOTVTouchBarCustomizationIdentifier          = @"com.macromates.TextMate.otv.customizationIdentifer";
+static NSTouchBarItemIdentifier kOTVTouchBarItemIdentifierNavigateBookmarks  = @"com.macromates.TextMate.otv.navigateBookmarks";
+static NSTouchBarItemIdentifier kOTVTouchBarItemIdentifierAddRemoveBookmark  = @"com.macromates.TextMate.otv.addRemoveBookmark";
+
+- (NSTouchBar*)makeTouchBar
+{
+	NSTouchBar* touchBar = [NSTouchBar new];
+	touchBar.delegate = self;
+	touchBar.defaultItemIdentifiers = @[ kOTVTouchBarItemIdentifierAddRemoveBookmark, kOTVTouchBarItemIdentifierNavigateBookmarks, ];
+	touchBar.customizationIdentifier = kOTVTouchBarCustomizationIdentifier;
+	touchBar.customizationAllowedItemIdentifiers = @[ kOTVTouchBarItemIdentifierAddRemoveBookmark, kOTVTouchBarItemIdentifierNavigateBookmarks, ];
+
+	return touchBar;
+}
+
+- (NSTouchBarItem*)touchBar:(NSTouchBar*)touchBar makeItemForIdentifier:(NSTouchBarItemIdentifier)identifier
+{
+	if([identifier isEqualToString:kOTVTouchBarItemIdentifierAddRemoveBookmark])
+	{
+		NSImage* bookmarkImage = [NSImage imageNamed:@"RemoveBookmarkTemplate" inSameBundleAsClass:[self class]];
+		bookmarkImage.accessibilityDescription = @"add or remove bookmark";
+
+		NSCustomTouchBarItem* bookmarkButtonTouchBarItem = [[NSCustomTouchBarItem alloc] initWithIdentifier:kOTVTouchBarItemIdentifierAddRemoveBookmark];
+		bookmarkButtonTouchBarItem.view = [NSButton buttonWithImage:bookmarkImage target:self action:@selector(toggleCurrentBookmark:)];
+		bookmarkButtonTouchBarItem.visibilityPriority = NSTouchBarItemPriorityHigh;
+		bookmarkButtonTouchBarItem.customizationLabel = @"Add/Remove Bookmark";
+
+		return bookmarkButtonTouchBarItem;
+	}
+	else if([identifier isEqualToString:kOTVTouchBarItemIdentifierNavigateBookmarks])
+	{
+		NSSegmentedControl* navigateMarkerSegmentedControl = [NSSegmentedControl new];
+		navigateMarkerSegmentedControl.segmentCount = 2;
+		navigateMarkerSegmentedControl.target       = self;
+		navigateMarkerSegmentedControl.action       = @selector(performNavigateBookMarksSegmentAction:);
+		navigateMarkerSegmentedControl.trackingMode = NSSegmentSwitchTrackingMomentary;
+		navigateMarkerSegmentedControl.segmentStyle = NSSegmentStyleSeparated;
+
+		NSImage* goUpImage = [NSImage imageNamed:NSImageNameTouchBarGoUpTemplate];
+		goUpImage.accessibilityDescription = @"previous bookmark";
+		NSImage* goDownImage = [NSImage imageNamed:NSImageNameTouchBarGoDownTemplate];
+		goDownImage.accessibilityDescription = @"next bookmark";
+
+		[navigateMarkerSegmentedControl setImage:goUpImage forSegment:0];
+		[navigateMarkerSegmentedControl setImage:goDownImage forSegment:1];
+
+		NSCustomTouchBarItem* markersTouchBarItem = [[NSCustomTouchBarItem alloc] initWithIdentifier:kOTVTouchBarItemIdentifierNavigateBookmarks];
+		markersTouchBarItem.view = navigateMarkerSegmentedControl;
+		markersTouchBarItem.visibilityPriority = NSTouchBarItemPriorityHigh;
+		markersTouchBarItem.customizationLabel = @"Previous/Next Bookmark";
+
+		return markersTouchBarItem;
+	}
+
+	return nil;
+}
+
+- (void)performNavigateBookmarksSegmentAction:(id)sender
+{
+	switch([sender selectedSegment])
+	{
+		case 0: [self goToPreviousBookmark:self]; break;
+		case 1: [self goToNextBookmark:self];     break;
+	}
+}
+
+// =============
+
 - (void)insertSnippetWithOptions:(NSDictionary*)someOptions // For Dialog popup
 {
 	AUTO_REFRESH;
@@ -3044,11 +3122,11 @@ static char const* kOakMenuItemTitle = "OakMenuItemTitle";
 	else if([aMenuItem action] == @selector(toggleShowIndentGuides:))
 		[aMenuItem setTitle:(documentView && documentView->draw_indent_guides()) ? @"Hide Indent Guides" : @"Show Indent Guides"];
 	else if([aMenuItem action] == @selector(toggleContinuousSpellChecking:))
-		[aMenuItem setState:documentView->live_spelling() ? NSOnState : NSOffState];
+		[aMenuItem setState:documentView->live_spelling() ? NSControlStateValueOn : NSControlStateValueOff];
 	else if([aMenuItem action] == @selector(takeSpellingLanguageFrom:))
-		[aMenuItem setState:[[NSString stringWithCxxString:documentView->spelling_language()] isEqualToString:[aMenuItem representedObject]] ? NSOnState : NSOffState];
+		[aMenuItem setState:[[NSString stringWithCxxString:documentView->spelling_language()] isEqualToString:[aMenuItem representedObject]] ? NSControlStateValueOn : NSControlStateValueOff];
 	else if([aMenuItem action] == @selector(takeWrapColumnFrom:))
-		[aMenuItem setState:(documentView && documentView->wrap_column() == [aMenuItem tag]) ? NSOnState : NSOffState];
+		[aMenuItem setState:(documentView && documentView->wrap_column() == [aMenuItem tag]) ? NSControlStateValueOn : NSControlStateValueOff];
 	else if([aMenuItem action] == @selector(undo:))
 	{
 		[aMenuItem setTitle:@"Undo"];
@@ -3292,7 +3370,7 @@ static char const* kOakMenuItemTitle = "OakMenuItemTitle";
 			[alertWindow recalculateKeyViewLoop];
 		}
 
-		[alert beginSheetModalForWindow:self.window completionHandler:^(NSInteger returnCode){
+		[alert beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse returnCode){
 			if(returnCode == NSAlertFirstButtonReturn)
 				[self setWrapColumn:std::max<NSInteger>([textField integerValue], 10)];
 		}];
@@ -3608,7 +3686,7 @@ static char const* kOakMenuItemTitle = "OakMenuItemTitle";
 {
 	return @[ NSColorPboardType, NSFilenamesPboardType,
 		@"WebURLsWithTitlesPboardType", (NSString*)kUTTypeURL, @"public.url-name", NSURLPboardType,
-		NSStringPboardType ];
+		NSPasteboardTypeString ];
 }
 
 - (void)setDropMarkAtPoint:(NSPoint)aPoint
@@ -3808,7 +3886,7 @@ static char const* kOakMenuItemTitle = "OakMenuItemTitle";
 		documentView->set_ranges(ng::range_t(pos));
 		documentView->insert(text::join(paths, "\n"));
 	}
-	else if(NSString* text = [pboard stringForType:[pboard availableTypeFromArray:@[ NSStringPboardType ]]])
+	else if(NSString* text = [pboard stringForType:[pboard availableTypeFromArray:@[ NSPasteboardTypeString ]]])
 	{
 		D(DBF_OakTextView_DragNDrop, bug("plain text: %s\n", [text UTF8String]););
 		if(shouldMove && documentView->has_selection())
