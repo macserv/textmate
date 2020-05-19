@@ -17,7 +17,7 @@ static BOOL IsProtocolRelativeURL (NSURL* url)
 	if([url.scheme isEqualToString:@"file"] && url.host)
 	{
 		// If host has a dot and does not exist on disk then treat as protocol-relative URL
-		if([url.host containsString:@"."] && ![[NSFileManager defaultManager] fileExistsAtPath:[@"/" stringByAppendingPathComponent:url.host]])
+		if([url.host containsString:@"."] && ![NSFileManager.defaultManager fileExistsAtPath:[@"/" stringByAppendingPathComponent:url.host]])
 			return YES;
 	}
 
@@ -27,7 +27,7 @@ static BOOL IsProtocolRelativeURL (NSURL* url)
 @implementation HOWebViewDelegateHelper
 + (void)initialize
 {
-	[[NSUserDefaults standardUserDefaults] registerDefaults:@{
+	[NSUserDefaults.standardUserDefaults registerDefaults:@{
 		kUserDefaultsDefaultURLProtocolKey: @"https",
 	}];
 }
@@ -115,7 +115,7 @@ static BOOL IsProtocolRelativeURL (NSURL* url)
 - (void)webView:(WebView*)webView addMessageToConsole:(NSDictionary*)dictionary;
 {
 	if([dictionary respondsToSelector:@selector(objectForKey:)])
-		fprintf(stderr, "%s: %s on line %d\n", [[[[[[webView mainFrame] dataSource] request] URL] absoluteString] UTF8String], [[dictionary objectForKey:@"message"] UTF8String], [[dictionary objectForKey:@"lineNumber"] intValue]);
+		os_log(OS_LOG_DEFAULT, "%{public}@: %{public}@ on line %d\n", webView.mainFrame.dataSource.request.URL.absoluteString, [dictionary objectForKey:@"message"], [[dictionary objectForKey:@"lineNumber"] intValue]);
 }
 
 // =====================================================
@@ -134,7 +134,7 @@ static BOOL IsProtocolRelativeURL (NSURL* url)
 	if(IsProtocolRelativeURL([request URL]))
 	{
 		NSURLComponents* components = [NSURLComponents componentsWithURL:[request URL] resolvingAgainstBaseURL:YES];
-		components.scheme = [[NSUserDefaults standardUserDefaults] stringForKey:kUserDefaultsDefaultURLProtocolKey];
+		components.scheme = [NSUserDefaults.standardUserDefaults stringForKey:kUserDefaultsDefaultURLProtocolKey];
 		request = [NSURLRequest requestWithURL:components.URL];
 	}
 

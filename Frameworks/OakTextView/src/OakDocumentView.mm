@@ -15,6 +15,7 @@
 #import <OakAppKit/NSImage Additions.h>
 #import <OakAppKit/OakToolTip.h>
 #import <OakAppKit/OakPasteboardChooser.h>
+#import <OakAppKit/OakPasteboard.h>
 #import <OakAppKit/OakUIConstructionFunctions.h>
 #import <OakAppKit/NSMenuItem Additions.h>
 #import <BundleMenu/BundleMenu.h>
@@ -36,7 +37,6 @@ static NSString* const kFoldingsColumnIdentifier  = @"foldings";
 	NSMutableDictionary* gutterImages;
 
 	OakBackgroundFillView* gutterDividerView;
-	OakBackgroundFillView* statusDividerView;
 
 	NSScrollView* textScrollView;
 
@@ -76,7 +76,7 @@ static NSString* const kFoldingsColumnIdentifier  = @"foldings";
 		gutterView.delegate    = self;
 		[gutterView insertColumnWithIdentifier:kBookmarksColumnIdentifier atPosition:0 dataSource:self delegate:self];
 		[gutterView insertColumnWithIdentifier:kFoldingsColumnIdentifier atPosition:2 dataSource:self delegate:self];
-		if([[NSUserDefaults standardUserDefaults] boolForKey:@"DocumentView Disable Line Numbers"])
+		if([NSUserDefaults.standardUserDefaults boolForKey:@"DocumentView Disable Line Numbers"])
 			[gutterView setVisibility:NO forColumnWithIdentifier:GVLineNumbersColumnIdentifier];
 		[gutterView setTranslatesAutoresizingMaskIntoConstraints:NO];
 
@@ -90,18 +90,17 @@ static NSString* const kFoldingsColumnIdentifier  = @"foldings";
 		[gutterScrollView.contentView addConstraint:[NSLayoutConstraint constraintWithItem:gutterView attribute:NSLayoutAttributeRight relatedBy:NSLayoutRelationEqual toItem:gutterScrollView.contentView attribute:NSLayoutAttributeRight multiplier:1.0 constant:0.0]];
 
 		gutterDividerView = OakCreateVerticalLine(OakBackgroundFillViewStyleNone);
-		statusDividerView = OakCreateHorizontalLine(OakBackgroundFillViewStyleDivider);
 
 		_statusBar = [[OTVStatusBar alloc] initWithFrame:NSZeroRect];
 		_statusBar.delegate = self;
 		_statusBar.target = self;
 
-		OakAddAutoLayoutViewsToSuperview(@[ gutterScrollView, gutterDividerView, textScrollView, statusDividerView, _statusBar ], self);
+		OakAddAutoLayoutViewsToSuperview(@[ gutterScrollView, gutterDividerView, textScrollView, _statusBar ], self);
 		OakSetupKeyViewLoop(@[ self, _textView, _statusBar ], NO);
 
 		self.document = [OakDocument documentWithString:@"" fileType:@"text.plain" customName:@"placeholder"];
 
-		self.observedKeys = @[ @"selectionString", @"symbol", @"recordingMacro"];
+		self.observedKeys = @[ @"selectionString", @"symbol", @"recordingMacro", @"themeUUID" ];
 		for(NSString* keyPath in self.observedKeys)
 			[_textView addObserver:self forKeyPath:keyPath options:NSKeyValueObservingOptionInitial context:NULL];
 	}
@@ -120,9 +119,8 @@ static NSString* const kFoldingsColumnIdentifier  = @"foldings";
 
 	if(_statusBar)
 	{
-		[stackedViews addObjectsFromArray:@[ statusDividerView, _statusBar ]];
-		[self addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[_statusBar(==statusDividerView)]|" options:NSLayoutFormatAlignAllLeft|NSLayoutFormatAlignAllRight metrics:nil views:NSDictionaryOfVariableBindings(statusDividerView, _statusBar)]];
-		[self addConstraint:[NSLayoutConstraint constraintWithItem:statusDividerView attribute:NSLayoutAttributeLeft relatedBy:NSLayoutRelationEqual toItem:self attribute:NSLayoutAttributeLeft multiplier:1.0 constant:0.0]];
+		[stackedViews addObject:_statusBar];
+		[self addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[_statusBar]|" options:0 metrics:nil views:NSDictionaryOfVariableBindings(_statusBar)]];
 	}
 
 	[self addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[gutterScrollView(==gutterView)][gutterDividerView][textScrollView(>=100)]|" options:NSLayoutFormatAlignAllTop|NSLayoutFormatAlignAllBottom metrics:nil views:NSDictionaryOfVariableBindings(gutterScrollView, gutterView, gutterDividerView, textScrollView)]];
@@ -148,9 +146,6 @@ static NSString* const kFoldingsColumnIdentifier  = @"foldings";
 	_hideStatusBar = flag;
 	if(_hideStatusBar)
 	{
-		[statusDividerView removeFromSuperview];
-		statusDividerView = nil;
-
 		[_statusBar removeFromSuperview];
 		_statusBar.delegate = nil;
 		_statusBar.target = nil;
@@ -158,13 +153,11 @@ static NSString* const kFoldingsColumnIdentifier  = @"foldings";
 	}
 	else
 	{
-		statusDividerView = OakCreateHorizontalLine(OakBackgroundFillViewStyleDivider);
-
 		_statusBar = [[OTVStatusBar alloc] initWithFrame:NSZeroRect];
 		_statusBar.delegate = self;
 		_statusBar.target = self;
 
-		OakAddAutoLayoutViewsToSuperview(@[ statusDividerView, _statusBar ], self);
+		OakAddAutoLayoutViewsToSuperview(@[ _statusBar ], self);
 	}
 	[self setNeedsUpdateConstraints:YES];
 }
@@ -215,8 +208,8 @@ static NSString* const kFoldingsColumnIdentifier  = @"foldings";
 
 - (void)updateGutterViewFont:(id)sender
 {
-	CGFloat const scaleFactor = [[NSUserDefaults standardUserDefaults] floatForKey:kUserDefaultsLineNumberScaleFactorKey] ?: 0.8;
-	NSString* lineNumberFontName = [[NSUserDefaults standardUserDefaults] stringForKey:kUserDefaultsLineNumberFontNameKey] ?: [_textView.font fontName];
+	CGFloat const scaleFactor = [NSUserDefaults.standardUserDefaults floatForKey:kUserDefaultsLineNumberScaleFactorKey] ?: 0.8;
+	NSString* lineNumberFontName = [NSUserDefaults.standardUserDefaults stringForKey:kUserDefaultsLineNumberFontNameKey] ?: [_textView.font fontName];
 
 	gutterImages = nil; // force image sizes to be recalculated
 	gutterView.lineNumberFont = [NSFont fontWithName:lineNumberFontName size:round(scaleFactor * [_textView.font pointSize] * _textView.fontScaleFactor)];
@@ -286,13 +279,17 @@ static NSString* const kFoldingsColumnIdentifier  = @"foldings";
 	{
 		_statusBar.softTabs = self.document.softTabs;
 	}
+	else if([aKeyPath isEqualToString:@"themeUUID"])
+	{
+		[self updateStyle];
+	}
 }
 
 - (void)dealloc
 {
 	for(NSString* keyPath in self.observedKeys)
 		[_textView removeObserver:self forKeyPath:keyPath];
-	[[NSNotificationCenter defaultCenter] removeObserver:self];
+	[NSNotificationCenter.defaultCenter removeObserver:self];
 
 	self.document = nil;
 	self.symbolChooser = nil;
@@ -307,7 +304,7 @@ static NSString* const kFoldingsColumnIdentifier  = @"foldings";
 	{
 		for(NSString* key in documentKeys)
 			[oldDocument removeObserver:self forKeyPath:key];
-		[[NSNotificationCenter defaultCenter] removeObserver:self name:OakDocumentMarksDidChangeNotification object:oldDocument];
+		[NSNotificationCenter.defaultCenter removeObserver:self name:OakDocumentMarksDidChangeNotification object:oldDocument];
 	}
 
 	if(aDocument)
@@ -315,7 +312,7 @@ static NSString* const kFoldingsColumnIdentifier  = @"foldings";
 
 	if(_document = aDocument)
 	{
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(documentMarksDidChange:) name:OakDocumentMarksDidChangeNotification object:self.document];
+		[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(documentMarksDidChange:) name:OakDocumentMarksDidChangeNotification object:self.document];
 		for(NSString* key in documentKeys)
 			[self.document addObserver:self forKeyPath:key options:NSKeyValueObservingOptionInitial context:nullptr];
 	}
@@ -338,7 +335,6 @@ static NSString* const kFoldingsColumnIdentifier  = @"foldings";
 {
 	if(theme_ptr theme = _textView.theme)
 	{
-		[[self window] setOpaque:!theme->is_transparent() && !theme->gutter_styles().is_transparent()];
 		[textScrollView setBackgroundColor:[NSColor colorWithCGColor:theme->background(to_s(self.document.fileType))]];
 		[textScrollView setScrollerKnobStyle:theme->is_dark() ? NSScrollerKnobStyleLight : NSScrollerKnobStyleDark];
 
@@ -381,49 +377,20 @@ static NSString* const kFoldingsColumnIdentifier  = @"foldings";
 	}
 }
 
-- (IBAction)takeThemeUUIDFrom:(id)sender
-{
-	[self setThemeWithUUID:[sender representedObject]];
-}
-
-- (void)setThemeWithUUID:(NSString*)themeUUID
-{
-	if(bundles::item_ptr const& themeItem = bundles::lookup(to_s(themeUUID)))
-	{
-		_textView.theme = parse_theme(themeItem);
-		settings_t::set(kSettingsThemeKey, to_s(themeUUID));
-		[self updateStyle];
-	}
-}
-
-- (void)viewDidChangeEffectiveAppearance
-{
-	NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
-	if([defaults boolForKey:@"changeThemeBasedOnAppearance"])
-	{
-		NSAppearanceName appearanceName = [self.effectiveAppearance bestMatchFromAppearancesWithNames:@[ NSAppearanceNameAqua, NSAppearanceNameDarkAqua ]];
-		if([appearanceName isEqualToString:NSAppearanceNameDarkAqua])
-				[self setThemeWithUUID:[defaults stringForKey:@"darkModeThemeUUID"]  ?: to_ns(kTwilightThemeUUID)];
-		else	[self setThemeWithUUID:[defaults stringForKey:@"universalThemeUUID"] ?: to_ns(kMacClassicThemeUUID)];
-	}
-}
-
 - (IBAction)toggleLineNumbers:(id)sender
 {
 	D(DBF_OakDocumentView, bug("show line numbers %s\n", BSTR([gutterView visibilityForColumnWithIdentifier:GVLineNumbersColumnIdentifier])););
 	BOOL isVisibleFlag = ![gutterView visibilityForColumnWithIdentifier:GVLineNumbersColumnIdentifier];
 	[gutterView setVisibility:isVisibleFlag forColumnWithIdentifier:GVLineNumbersColumnIdentifier];
 	if(isVisibleFlag)
-			[[NSUserDefaults standardUserDefaults] removeObjectForKey:@"DocumentView Disable Line Numbers"];
-	else	[[NSUserDefaults standardUserDefaults] setObject:@YES forKey:@"DocumentView Disable Line Numbers"];
+			[NSUserDefaults.standardUserDefaults removeObjectForKey:@"DocumentView Disable Line Numbers"];
+	else	[NSUserDefaults.standardUserDefaults setObject:@YES forKey:@"DocumentView Disable Line Numbers"];
 }
 
 - (BOOL)validateMenuItem:(NSMenuItem*)aMenuItem
 {
 	if([aMenuItem action] == @selector(toggleLineNumbers:))
 		[aMenuItem setTitle:[gutterView visibilityForColumnWithIdentifier:GVLineNumbersColumnIdentifier] ? @"Hide Line Numbers" : @"Show Line Numbers"];
-	else if([aMenuItem action] == @selector(takeThemeUUIDFrom:))
-		[aMenuItem setState:_textView.theme && _textView.theme->uuid() == [[aMenuItem representedObject] UTF8String] ? NSControlStateValueOn : NSControlStateValueOff];
 	else if([aMenuItem action] == @selector(takeTabSizeFrom:))
 		[aMenuItem setState:_textView.tabSize == [aMenuItem tag] ? NSControlStateValueOn : NSControlStateValueOff];
 	else if([aMenuItem action] == @selector(showTabSizeSelectorPanel:))
@@ -489,15 +456,16 @@ static NSString* const kFoldingsColumnIdentifier  = @"foldings";
 
 - (void)showClipboardHistory:(id)sender
 {
-	OakPasteboardChooser* chooser = [OakPasteboardChooser sharedChooserForName:NSGeneralPboard];
+	OakPasteboardChooser* chooser = [OakPasteboardChooser sharedChooserForPasteboard:OakPasteboard.generalPasteboard];
 	chooser.action = @selector(paste:);
 	[chooser showWindowRelativeToFrame:[self.window convertRectToScreen:[_textView convertRect:[_textView visibleRect] toView:nil]]];
 }
 
 - (void)showFindHistory:(id)sender
 {
-	OakPasteboardChooser* chooser = [OakPasteboardChooser sharedChooserForName:NSFindPboard];
-	chooser.action = @selector(findNext:);
+	OakPasteboardChooser* chooser = [OakPasteboardChooser sharedChooserForPasteboard:OakPasteboard.findPasteboard];
+	chooser.action          = @selector(findNext:);
+	chooser.alternateAction = @selector(orderFrontFindPanelForProject:);
 	[chooser showWindowRelativeToFrame:[self.window convertRectToScreen:[_textView convertRect:[_textView visibleRect] toView:nil]]];
 }
 
@@ -518,7 +486,7 @@ static NSString* const kFoldingsColumnIdentifier  = @"foldings";
 
 	if(_symbolChooser)
 	{
-		[[NSNotificationCenter defaultCenter] removeObserver:self name:NSWindowWillCloseNotification object:_symbolChooser.window];
+		[NSNotificationCenter.defaultCenter removeObserver:self name:NSWindowWillCloseNotification object:_symbolChooser.window];
 
 		_symbolChooser.target     = nil;
 		_symbolChooser.TMDocument = nil;
@@ -532,7 +500,7 @@ static NSString* const kFoldingsColumnIdentifier  = @"foldings";
 		_symbolChooser.TMDocument      = self.document;
 		_symbolChooser.selectionString = _textView.selectionString;
 
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(symbolChooserWillClose:) name:NSWindowWillCloseNotification object:_symbolChooser.window];
+		[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(symbolChooserWillClose:) name:NSWindowWillCloseNotification object:_symbolChooser.window];
 	}
 }
 
@@ -543,7 +511,7 @@ static NSString* const kFoldingsColumnIdentifier  = @"foldings";
 
 - (IBAction)showSymbolChooser:(id)sender
 {
-	self.symbolChooser = [SymbolChooser sharedInstance];
+	self.symbolChooser = SymbolChooser.sharedInstance;
 	[self.symbolChooser showWindowRelativeToFrame:[self.window convertRectToScreen:[_textView convertRect:[_textView visibleRect] toView:nil]]];
 }
 
@@ -632,7 +600,7 @@ static NSString* const kFoldingsColumnIdentifier  = @"foldings";
 
 		NSMenuItem* menuItem = [bundleItemsMenu addItemWithTitle:[NSString stringWithCxxString:pair.first] action:NULL keyEquivalent:@""];
 		menuItem.submenu = [[NSMenu alloc] initWithTitle:[NSString stringWithCxxString:pair.second->uuid()]];
-		menuItem.submenu.delegate = [BundleMenuDelegate sharedInstance];
+		menuItem.submenu.delegate = BundleMenuDelegate.sharedInstance;
 
 		if(selectedGrammar)
 		{
@@ -813,7 +781,7 @@ static NSString* const kFoldingsColumnIdentifier  = @"foldings";
 	else if([columnIdentifier isEqualToString:kFoldingsColumnIdentifier])
 	{
 		[_textView toggleFoldingAtLine:lineNumber recursive:OakIsAlternateKeyOrMouseEvent()];
-		[[NSNotificationCenter defaultCenter] postNotificationName:GVColumnDataSourceDidChange object:self];
+		[NSNotificationCenter.defaultCenter postNotificationName:GVColumnDataSourceDidChange object:self];
 	}
 }
 
@@ -824,7 +792,7 @@ static NSString* const kFoldingsColumnIdentifier  = @"foldings";
 
 - (void)documentMarksDidChange:(NSNotification*)aNotification
 {
-	[[NSNotificationCenter defaultCenter] postNotificationName:GVColumnDataSourceDidChange object:self];
+	[NSNotificationCenter.defaultCenter postNotificationName:GVColumnDataSourceDidChange object:self];
 }
 
 // ============

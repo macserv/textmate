@@ -2,6 +2,63 @@ Title: Release Notes
 
 # Changes
 
+## 2020-05-16 (v2.0.15)
+
+* Fix another potential crash in 2.0.13 related to transparent themes: We no longer support themes with a transparent background. This is due to technical challenges achieving this on macOS 10.14 and later, where each view is rendered into its own layer. The feature may come back, but probably not until we require macOS 10.14, because we may need different code paths (and testing) for different versions of macOS.
+* See [all changes since v2.0.14](https://github.com/textmate/textmate/compare/v2.0.14...v2.0.15)
+
+## 2020-05-14 (v2.0.14)
+
+* Fix crash in 2.0.13 when no license key was found.
+
+## 2020-05-14 (v2.0.13)
+
+* The View → Theme submenu now allows to set appearance to “auto” (follow system settings) and to configure light/dark themes separately. Note that prior to macOS 10.14 setting appearance to “auto” is the same as setting it to “light”.
+* Improve the folder pop-up submenu in the Find in Folder: We now show direct descendents in the first submenu and ancestors below these, with the first ancestor showing ⌘↑ as shortcut key (improved discoverability of this shortcut).
+* It’s now possible to see when bundle index was last updated in Preferences → Bundles.
+* See [all changes since v2.0.12](https://github.com/textmate/textmate/compare/v2.0.12...v2.0.13)
+
+## 2020-05-10 (v2.0.12)
+
+* In the Find History window it is now possible to hold down option (⌥) to change the “Find Next” button to “Find in Project”.
+* See [all changes since v2.0.11](https://github.com/textmate/textmate/compare/v2.0.11...v2.0.12)
+
+## 2020-04-30 (v2.0.11)
+
+* It is now possible to use ⌘[ in the Find dialog to go back to previously searched folders. The pop-up menu will show ⌘[ and ⌘] shortcuts next to the folders that the respective keys will select.
+* A sound is now played when starting/stopping macro recording (⌥⌘M).
+* Commands with output shown in the HTML output window (such as ⌘R for scripts) would timeout (and kill the script) after 1 hour and 40 minutes. This timeout has now been set to aeons (`FLT_MAX`).
+* Next/previous bookmark actions in the touch bar now work again. *[Ronald Wampler]*
+* Improved performance for showing clipboard history (only an issue since v2.0.8).
+* See [all changes since v2.0.10](https://github.com/textmate/textmate/compare/v2.0.10...v2.0.11)
+
+## 2020-04-23 (v2.0.10)
+
+### Clipboard and Clipboard History
+
+The Clipboard History dialogs (Edit → Paste → Show History and Edit → Find → Show Find History) now allow you to flag entries. This can be done either by clicking the flag button or using ⌘F2 (the shortcut normally used to toggle bookmarks).
+
+Flagged entries will not be removed from history neither automatically nor when using “Clear History”. All flagged entries can be seen by selecting the Flagged source (note: dialogs with a “source selector” support normal tab navigation keys such as ⌘{ / ⌘} for previous/next and ⌘1-⌘n to select the nth source).
+
+It is now possible to select multiple entires in the clipboard history dialogs. If you paste with multiple entries selected then it will insert the items with newlines in between. If you search, it will construct a regular expression matching any of the selected items.
+
+Note that the latter can also be achieved by using ⌘E (Edit → Find → Use Selection for Find) when there are multiple selections. It may sound like a novelty, but I use this feature close to daily.
+
+Multiple selections are now stored on the clipboard as multiple strings, this may improve compatibility with other applications that also support multiple selections. Previously they were stored as a single newline-delimited string. This also means that copy/paste of multiple selections work even when the selections include newlines (this would previously lead to newlines being lost due to how we stored a single combined string on the clipboard).
+
+Clipboard history is now stored in a sqlite database (`~/Library/Application Support/TextMate/PasteboardHistory.db`) instead of using CoreData. This means old history has been lost (no good way to migrate this data).
+
+If you have disabled persistent history (via the `disablePersistentClipboardHistory` defaults key) then the sqlite database is memory backed, and history (including flagged items) will be lost if you quit TextMate.
+
+TextMate should now always pick up clipboard changes: Previously it could miss updates that happened while TextMate was active, as the system occasionally will forget to bump the change count of the clipboard in this situation, so we no longer rely on the clipboard’s change count.
+
+### Other Changes
+
+* If you copy items from the file browser (⌘C) and paste in Apple’s Terminal.app then proper (full) paths should now be inserted. Previously this only worked for iTerm2.app (as Terminal.app is peculiar in how it interprets the clipboard).
+* If you rename an ancestor folder of an open document, TextMate should now notice this and will update the path accordingly. It will also treat moving a file to trash as that file being deleted (instead of simply renamed).
+* The filter bar in Bundles preferences now support dark mode and acts like a set of radio buttons (so clicking one category will unselect other categories).
+* See [all changes since v2.0.6](https://github.com/textmate/textmate/compare/v2.0.6...v2.0.10)
+
 ## 2019-12-28 (v2.0.6)
 
 * Rebuild using older SDK as possible workaround for newly introduced crash on macOS 10.13.

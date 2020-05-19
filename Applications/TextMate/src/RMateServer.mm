@@ -47,40 +47,21 @@ struct socket_callback_t
 
 		helper = std::make_shared<helper_t>(f, fd, this);
 
-		CFSocketContext const context = { 0, helper.get(), NULL, NULL, NULL };
-		if(socket = CFSocketCreateWithNative(kCFAllocatorDefault, fd, kCFSocketReadCallBack, callback, &context))
+		if(_dispatchSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, (int)fd, 0, dispatch_get_main_queue()))
 		{
-			CFSocketSetSocketFlags(socket, CFSocketGetSocketFlags(socket) & ~kCFSocketCloseOnInvalidate);
-			if(run_loop_source = CFSocketCreateRunLoopSource(kCFAllocatorDefault, socket, 0))
-					CFRunLoopAddSource(CFRunLoopGetCurrent(), run_loop_source, kCFRunLoopDefaultMode);
-			else	fprintf(stderr, "*** CFSocketCreateRunLoopSource() failed\n");
-		}
-		else
-		{
-			fprintf(stderr, "*** CFSocketCreateWithNative() failed: fd = %d\n", (int)fd);
+			dispatch_source_set_event_handler(_dispatchSource, ^{
+				(*helper)();
+			});
+			dispatch_resume(_dispatchSource);
 		}
 	}
 
 	~socket_callback_t ()
 	{
 		D(DBF_RMateServer, bug("%p\n", this););
-		ASSERT(CFRunLoopContainsSource(CFRunLoopGetCurrent(), run_loop_source, kCFRunLoopDefaultMode));
 
-		if(socket)
-		{
-			CFSocketInvalidate(socket);
-			if(run_loop_source)
-			{
-				CFRunLoopRemoveSource(CFRunLoopGetCurrent(), run_loop_source, kCFRunLoopDefaultMode);
-				CFRelease(run_loop_source);
-			}
-			CFRelease(socket);
-		}
-	}
-
-	static void callback (CFSocketRef s, CFSocketCallBackType callbackType, CFDataRef address, void const* data, void* info)
-	{
-		(*(helper_t*)info)();
+		if(_dispatchSource)
+			dispatch_source_cancel(_dispatchSource);
 	}
 
 private:
@@ -96,8 +77,7 @@ private:
 	};
 
 	std::shared_ptr<helper_t> helper;
-	CFSocketRef socket;
-	CFRunLoopSourceRef run_loop_source;
+	dispatch_source_t _dispatchSource;
 };
 
 typedef std::shared_ptr<socket_callback_t> socket_callback_ptr;
@@ -267,19 +247,19 @@ namespace // wrap in anonymous namespace to avoid clashing with other callbacks 
 
 		base_t (OakDocument* document)
 		{
-			_close_observer = [[NSNotificationCenter defaultCenter] addObserverForName:OakDocumentWillCloseNotification object:document queue:nil usingBlock:^(NSNotification*){
+			_close_observer = [NSNotificationCenter.defaultCenter addObserverForName:OakDocumentWillCloseNotification object:document queue:nil usingBlock:^(NSNotification*){
 				this->close_document(document);
 				delete this;
 			}];
-			_save_observer = [[NSNotificationCenter defaultCenter] addObserverForName:OakDocumentDidSaveNotification object:document queue:nil usingBlock:^(NSNotification*){
+			_save_observer = [NSNotificationCenter.defaultCenter addObserverForName:OakDocumentDidSaveNotification object:document queue:nil usingBlock:^(NSNotification*){
 				this->save_document(document);
 			}];
 		}
 
 		virtual ~base_t ()
 		{
-			[[NSNotificationCenter defaultCenter] removeObserver:_save_observer];
-			[[NSNotificationCenter defaultCenter] removeObserver:_close_observer];
+			[NSNotificationCenter.defaultCenter removeObserver:_save_observer];
+			[NSNotificationCenter.defaultCenter removeObserver:_close_observer];
 		}
 
 		virtual void save_document (OakDocument* document)  { }
@@ -315,7 +295,7 @@ namespace // wrap in anonymous namespace to avoid clashing with other callbacks 
 				res = res && write_data();
 			res = res && write(socket, "\r\n", 2) == 2;
 			if(!res)
-				fprintf(stderr, "*** rmate: callback failed to save ‘%s’\n", document.displayName.UTF8String);
+				os_log_error(OS_LOG_DEFAULT, "rmate: callback failed to save ‘%{public}@’", document.displayName);
 		}
 
 		void close_document (OakDocument* document)
@@ -328,7 +308,7 @@ namespace // wrap in anonymous namespace to avoid clashing with other callbacks 
 				res = res && write_data();
 			res = res && write(socket, "\r\n", 2) == 2;
 			if(!res)
-				fprintf(stderr, "*** rmate: callback failed while closing ‘%s’\n", document.displayName.UTF8String);
+				os_log_error(OS_LOG_DEFAULT, "rmate: callback failed while closing ‘%{public}@’", document.displayName);
 		}
 
 	private:
@@ -374,20 +354,20 @@ namespace // wrap in anonymous namespace to avoid clashing with other callbacks 
 		reactivate_callback_t () : _shared_count(std::make_shared<size_t>(0))
 		{
 			D(DBF_RMateServer, bug("%p\n", this););
-			_terminal = std::make_shared<NSRunningApplication*>([[NSWorkspace sharedWorkspace] frontmostApplication]);
+			_terminal = std::make_shared<NSRunningApplication*>([NSWorkspace.sharedWorkspace frontmostApplication]);
 
 			auto terminal = _terminal;
 			if([*terminal isEqual:NSRunningApplication.currentApplication])
 			{
 				// If we call ‘mate -w’ in quick succession there is a chance that we have not yet re-activated the terminal app when we are asked to open a new document. For this reason, we monitor the NSApplicationDidResignActiveNotification for 200 ms to see if the “real” frontmost application becomes active.
 
-				__weak __block id observerId = [[NSNotificationCenter defaultCenter] addObserverForName:NSApplicationDidResignActiveNotification object:NSApp queue:nil usingBlock:^(NSNotification*){
-					[[NSNotificationCenter defaultCenter] removeObserver:observerId];
-					*terminal = [[NSWorkspace sharedWorkspace] frontmostApplication];
+				__weak __block id observerId = [NSNotificationCenter.defaultCenter addObserverForName:NSApplicationDidResignActiveNotification object:NSApp queue:nil usingBlock:^(NSNotification*){
+					[NSNotificationCenter.defaultCenter removeObserver:observerId];
+					*terminal = [NSWorkspace.sharedWorkspace frontmostApplication];
 				}];
 
 				dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC / 5), dispatch_get_main_queue(), ^{
-					[[NSNotificationCenter defaultCenter] removeObserver:observerId];
+					[NSNotificationCenter.defaultCenter removeObserver:observerId];
 				});
 			}
 		}
@@ -398,11 +378,11 @@ namespace // wrap in anonymous namespace to avoid clashing with other callbacks 
 			auto terminal = _terminal;
 
 			++*counter;
-			__weak __block id observerId = [[NSNotificationCenter defaultCenter] addObserverForName:OakDocumentWillCloseNotification object:document queue:nil usingBlock:^(NSNotification*){
+			__weak __block id observerId = [NSNotificationCenter.defaultCenter addObserverForName:OakDocumentWillCloseNotification object:document queue:nil usingBlock:^(NSNotification*){
 				D(DBF_RMateServer, bug("%zu → %zu\n", *counter, *counter - 1););
 				if(--*counter == 0)
 					[*terminal activateWithOptions:NSApplicationActivateIgnoringOtherApps];
-				[[NSNotificationCenter defaultCenter] removeObserver:observerId];
+				[NSNotificationCenter.defaultCenter removeObserver:observerId];
 			}];
 		}
 
@@ -668,7 +648,7 @@ struct socket_observer_t
 				std::string::size_type n = mark.find(':');
 				if(doc)
 						[doc setMarkOfType:to_ns(n == std::string::npos ? mark : mark.substr(0, n)) atPosition:line content:n == std::string::npos ? nil : to_ns(mark.substr(n+1))];
-				else	fprintf(stderr, "set-mark: no document\n");
+				else	os_log_error(OS_LOG_DEFAULT, "set-mark: no document");
 			}
 		}
 	}

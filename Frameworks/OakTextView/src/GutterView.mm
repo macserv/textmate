@@ -1,6 +1,7 @@
 #import "GutterView.h"
 #import <OakAppKit/OakAppKit.h>
 #import <OakAppKit/NSImage Additions.h>
+#import <OakFoundation/OakFoundation.h>
 #import <OakFoundation/NSString Additions.h>
 #import <Preferences/Keys.h>
 #import <text/types.h>
@@ -28,7 +29,7 @@ struct data_source_t
 	CGFloat width;
 };
 
-@interface GutterView ()
+@interface GutterView () <OakUserDefaultsObserver>
 {
 	std::vector<data_source_t> columnDataSources;
 	NSMutableSet* hiddenColumns;
@@ -56,8 +57,8 @@ struct data_source_t
 {
 	if(self = [super initWithFrame:frame])
 	{
-		id fontName = [[NSUserDefaults standardUserDefaults] objectForKey:@"NSFixedPitchFont"];
-		id fontSize = [[NSUserDefaults standardUserDefaults] objectForKey:@"NSFixedPitchFontSize"];
+		id fontName = [NSUserDefaults.standardUserDefaults objectForKey:@"NSFixedPitchFont"];
+		id fontSize = [NSUserDefaults.standardUserDefaults objectForKey:@"NSFixedPitchFontSize"];
 		crash_reporter_info_t info("User has font name override %s, size %s", BSTR(fontName), BSTR(fontSize));
 		if(fontName) info << "font name: " << [[fontName description] UTF8String];
 		if(fontSize) info << "font size: " << [[fontSize description] UTF8String];
@@ -71,15 +72,15 @@ struct data_source_t
 
 		[self userDefaultsDidChange:nil];
 
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(cursorDidHide:) name:OakCursorDidHideNotification object:nil];
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(userDefaultsDidChange:) name:NSUserDefaultsDidChangeNotification object:[NSUserDefaults standardUserDefaults]];
+		[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(cursorDidHide:) name:OakCursorDidHideNotification object:nil];
+		OakObserveUserDefaults(self);
 	}
 	return self;
 }
 
 - (void)userDefaultsDidChange:(id)sender
 {
-	self.antiAlias = ![[NSUserDefaults standardUserDefaults] boolForKey:kUserDefaultsDisableAntiAliasKey];
+	self.antiAlias = ![NSUserDefaults.standardUserDefaults boolForKey:kUserDefaultsDisableAntiAliasKey];
 }
 
 - (void)updateTrackingAreas
@@ -91,9 +92,9 @@ struct data_source_t
 
 - (void)viewDidMoveToWindow
 {
-	[[NSNotificationCenter defaultCenter] removeObserver:self name:NSWindowDidResignKeyNotification object:nil];
+	[NSNotificationCenter.defaultCenter removeObserver:self name:NSWindowDidResignKeyNotification object:nil];
 	if(self.window)
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(windowDidResignKey:) name:NSWindowDidResignKeyNotification object:self.window];
+		[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(windowDidResignKey:) name:NSWindowDidResignKeyNotification object:self.window];
 }
 
 - (void)windowDidResignKey:(NSNotification*)notification
@@ -107,9 +108,9 @@ struct data_source_t
 	for(auto const& it : columnDataSources)
 	{
 		if(it.datasource)
-			[[NSNotificationCenter defaultCenter] removeObserver:self name:GVColumnDataSourceDidChange object:it.datasource];
+			[NSNotificationCenter.defaultCenter removeObserver:self name:GVColumnDataSourceDidChange object:it.datasource];
 	}
-	[[NSNotificationCenter defaultCenter] removeObserver:self];
+	[NSNotificationCenter.defaultCenter removeObserver:self];
 }
 
 - (void)setupSelectionRects
@@ -156,11 +157,11 @@ struct data_source_t
 	D(DBF_GutterView, bug("%s (%p)\n", [[[aView class] description] UTF8String], aView););
 
 	if(_partnerView)
-		[[NSNotificationCenter defaultCenter] removeObserver:self];
+		[NSNotificationCenter.defaultCenter removeObserver:self];
 	if(_partnerView = aView)
 	{
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(boundsDidChange:) name:NSViewBoundsDidChangeNotification object:[[_partnerView enclosingScrollView] contentView]];
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(boundsDidChange:) name:NSViewFrameDidChangeNotification object:_partnerView];
+		[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(boundsDidChange:) name:NSViewBoundsDidChangeNotification object:[[_partnerView enclosingScrollView] contentView]];
+		[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(boundsDidChange:) name:NSViewFrameDidChangeNotification object:_partnerView];
 	}
 }
 
@@ -169,7 +170,7 @@ struct data_source_t
 	ASSERT(index <= columnDataSources.size());
 	columnDataSources.insert(columnDataSources.begin() + index, data_source_t(columnIdentifier.UTF8String, columnDataSource, columnDelegate));
 	if(columnDelegate)
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(columnDataSourceDidChange:) name:GVColumnDataSourceDidChange object:columnDelegate];
+		[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(columnDataSourceDidChange:) name:GVColumnDataSourceDidChange object:columnDelegate];
 	[self reloadData:self];
 }
 
@@ -300,7 +301,7 @@ static CGFloat WidthOfLineNumbers (NSUInteger lineNumber, NSFont* font)
 
 static void DrawText (std::string const& text, CGRect const& rect, CGFloat baseline, NSFont* font, NSColor* color)
 {
-	CGContextRef context = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
+	CGContextRef context = NSGraphicsContext.currentContext.CGContext;
 	CGContextSaveGState(context);
 
 	CTLineRef line = CreateCTLineFromText(text, font, color);
@@ -329,7 +330,7 @@ static void DrawText (std::string const& text, CGRect const& rect, CGFloat basel
 		NSRectFillUsingOperation(NSIntersectionRect(rect, NSIntersectionRect(aRect, self.frame)), NSCompositingOperationSourceOver);
 
 	if(!self.antiAlias)
-		CGContextSetShouldAntialias((CGContextRef)[[NSGraphicsContext currentContext] graphicsPort], false);
+		CGContextSetShouldAntialias(NSGraphicsContext.currentContext.CGContext, false);
 
 	std::pair<NSUInteger, NSUInteger> prevLine(NSNotFound, 0);
 	for(CGFloat y = NSMinY(aRect); y < NSMaxY(aRect); )
@@ -383,7 +384,7 @@ static void DrawText (std::string const& text, CGRect const& rect, CGFloat basel
 						imageRect.origin.y = 0;
 
 						CGImageRef cgImage = [image CGImageForProposedRect:&imageRect context:[NSGraphicsContext currentContext] hints:nil];
-						CGContextClipToMask((CGContextRef)[[NSGraphicsContext currentContext] graphicsPort], imageRect, cgImage);
+						CGContextClipToMask(NSGraphicsContext.currentContext.CGContext, imageRect, cgImage);
 
 						NSRectFillUsingOperation(imageRect, NSCompositingOperationSourceOver);
 						[NSGraphicsContext restoreGraphicsState];

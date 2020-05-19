@@ -137,18 +137,18 @@ OakRolloverButton* OakCreateCloseButton (NSString* accessibilityLabel)
 {
 	if(self.window)
 	{
-		[[NSNotificationCenter defaultCenter] removeObserver:self name:NSWindowDidBecomeMainNotification object:self.window];
-		[[NSNotificationCenter defaultCenter] removeObserver:self name:NSWindowDidResignMainNotification object:self.window];
-		[[NSNotificationCenter defaultCenter] removeObserver:self name:NSWindowDidBecomeKeyNotification object:self.window];
-		[[NSNotificationCenter defaultCenter] removeObserver:self name:NSWindowDidResignKeyNotification object:self.window];
+		[NSNotificationCenter.defaultCenter removeObserver:self name:NSWindowDidBecomeMainNotification object:self.window];
+		[NSNotificationCenter.defaultCenter removeObserver:self name:NSWindowDidResignMainNotification object:self.window];
+		[NSNotificationCenter.defaultCenter removeObserver:self name:NSWindowDidBecomeKeyNotification object:self.window];
+		[NSNotificationCenter.defaultCenter removeObserver:self name:NSWindowDidResignKeyNotification object:self.window];
 	}
 
 	if(newWindow)
 	{
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(windowDidChangeMainOrKey:) name:NSWindowDidBecomeMainNotification object:newWindow];
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(windowDidChangeMainOrKey:) name:NSWindowDidResignMainNotification object:newWindow];
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(windowDidChangeMainOrKey:) name:NSWindowDidBecomeKeyNotification object:newWindow];
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(windowDidChangeMainOrKey:) name:NSWindowDidResignKeyNotification object:newWindow];
+		[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(windowDidChangeMainOrKey:) name:NSWindowDidBecomeMainNotification object:newWindow];
+		[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(windowDidChangeMainOrKey:) name:NSWindowDidResignMainNotification object:newWindow];
+		[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(windowDidChangeMainOrKey:) name:NSWindowDidBecomeKeyNotification object:newWindow];
+		[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(windowDidChangeMainOrKey:) name:NSWindowDidResignKeyNotification object:newWindow];
 	}
 
 	self.active = ([newWindow styleMask] & NSWindowStyleMaskFullScreen) || [newWindow isMainWindow] || [newWindow isKeyWindow];
@@ -241,25 +241,6 @@ OakRolloverButton* OakCreateCloseButton (NSString* accessibilityLabel)
 			self.inactiveBackgroundGradient = [[NSGradient alloc] initWithStartingColor:[NSColor colorWithCalibratedWhite:0.915 alpha:1] endingColor:[NSColor colorWithCalibratedWhite:0.915 alpha:1]];
 		}
 	}
-
-	if(self.style == OakBackgroundFillViewStyleDivider)
-	{
-		if(@available(macos 10.14, *))
-		{
-			self.activeBackgroundColor   = [NSColor separatorColor];
-			self.inactiveBackgroundColor = nil;
-		}
-		else
-		{
-			self.activeBackgroundColor   = [NSColor colorWithCalibratedWhite:0.500 alpha:1];
-			self.inactiveBackgroundColor = [NSColor colorWithCalibratedWhite:0.750 alpha:1];
-		}
-	}
-
-	if(self.style == OakBackgroundFillViewStyleDarkDivider)
-	{
-		self.activeBackgroundColor = [NSColor tmDarkDividerColor];
-	}
 }
 
 - (void)drawRect:(NSRect)aRect
@@ -280,7 +261,7 @@ OakRolloverButton* OakCreateCloseButton (NSString* accessibilityLabel)
 	{
 		NSImage* image = value;
 		[[NSColor colorWithPatternImage:image] set];
-		CGContextRef context = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
+		CGContextRef context = NSGraphicsContext.currentContext.CGContext;
 		CGAffineTransform affineTransform = CGContextGetCTM(context);
 		CGContextSetPatternPhase(context, CGSizeMake(affineTransform.tx, affineTransform.ty));
 		NSRectFillUsingOperation(aRect, NSCompositingOperationSourceOver);
@@ -303,32 +284,11 @@ OakBackgroundFillView* OakCreateVerticalLine (OakBackgroundFillViewStyle style)
 	return view;
 }
 
-OakBackgroundFillView* OakCreateHorizontalLine (OakBackgroundFillViewStyle style)
-{
-	OakBackgroundFillView* view = [[OakBackgroundFillView alloc] initWithFrame:NSZeroRect];
-	view.style = style;
-	[view addConstraint:[NSLayoutConstraint constraintWithItem:view attribute:NSLayoutAttributeHeight relatedBy:NSLayoutRelationEqual toItem:nil attribute:NSLayoutAttributeNotAnAttribute multiplier:1 constant:1]];
-	view.translatesAutoresizingMaskIntoConstraints = NO;
-	return view;
-}
-
-NSView* OakCreateDividerImageView ()
+NSView* OakCreateNSBoxSeparator ()
 {
 	NSBox* box = [[NSBox alloc] initWithFrame:NSZeroRect];
 	box.boxType = NSBoxSeparator;
-
-	NSDictionary* views = @{
-		@"box": box,
-	};
-
-	NSView* contentView = [[NSView alloc] initWithFrame:NSZeroRect];
-	OakAddAutoLayoutViewsToSuperview(views.allValues, contentView);
-
-	[contentView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[box(==1)]|" options:0 metrics:nil views:views]];
-	[contentView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:[box(==16)]" options:0 metrics:nil views:views]];
-	[contentView addConstraint:[NSLayoutConstraint constraintWithItem:box attribute:NSLayoutAttributeCenterY relatedBy:NSLayoutRelationEqual toItem:contentView attribute:NSLayoutAttributeCenterY multiplier:1 constant:0]];
-
-	return contentView;
+	return box;
 }
 
 void OakSetupKeyViewLoop (NSArray* superviews, BOOL setFirstResponder)

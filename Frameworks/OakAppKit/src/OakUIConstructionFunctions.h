@@ -4,8 +4,6 @@
 typedef NS_ENUM(NSUInteger, OakBackgroundFillViewStyle) {
 	OakBackgroundFillViewStyleNone = 0,
 	OakBackgroundFillViewStyleHeader,
-	OakBackgroundFillViewStyleDivider,
-	OakBackgroundFillViewStyleDarkDivider,
 };
 
 PUBLIC @interface OakBackgroundFillView : NSView
@@ -29,9 +27,8 @@ PUBLIC NSPopUpButton* OakCreatePopUpButton (BOOL pullsDown = NO, NSString* initi
 PUBLIC NSPopUpButton* OakCreateActionPopUpButton (BOOL bordered = NO);
 PUBLIC NSComboBox* OakCreateComboBox (NSView* labelView = nil);
 PUBLIC OakRolloverButton* OakCreateCloseButton (NSString* accessibilityLabel = @"Close document");
-PUBLIC NSView* OakCreateDividerImageView ();
+PUBLIC NSView* OakCreateNSBoxSeparator ();
 
 PUBLIC OakBackgroundFillView* OakCreateVerticalLine (OakBackgroundFillViewStyle style);
-PUBLIC OakBackgroundFillView* OakCreateHorizontalLine (OakBackgroundFillViewStyle style);
 PUBLIC void OakSetupKeyViewLoop (NSArray* views, BOOL setFirstResponder = YES);
 PUBLIC void OakAddAutoLayoutViewsToSuperview (NSArray* views, NSView* superview);

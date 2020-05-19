@@ -34,7 +34,7 @@ static size_t line_count (std::string const& text)
 
 - (NSDictionary*)textAttributes
 {
-	static NSMutableParagraphStyle* const style = [[NSParagraphStyle defaultParagraphStyle] mutableCopy];
+	static NSMutableParagraphStyle* const style = [NSParagraphStyle.defaultParagraphStyle mutableCopy];
 	[style setLineBreakMode:NSLineBreakByTruncatingTail];
 	if([self isHighlighted])
 	{
@@ -136,6 +136,7 @@ static size_t line_count (std::string const& text)
 }
 - (void)setTableView:(NSTableView*)aTableView;
 @property (nonatomic) BOOL shouldClose;
+@property (nonatomic) BOOL shouldCancel;
 @end
 
 @implementation OakPasteboardSelectorTableViewHelper
@@ -234,7 +235,8 @@ static size_t line_count (std::string const& text)
 
 - (void)cancel:(id)sender
 {
-	_shouldClose = YES;
+	_shouldCancel = YES;
+	_shouldClose  = YES;
 }
 
 - (void)doCommandBySelector:(SEL)aSelector
@@ -266,6 +268,12 @@ static size_t line_count (std::string const& text)
 - (NSArray*)entries
 {
 	return entries;
+}
+@end
+
+@interface OakPasteboardSelector ()
+{
+	OakPasteboardSelectorTableViewHelper* tableViewHelper;
 }
 @end
 
@@ -329,7 +337,7 @@ static size_t line_count (std::string const& text)
 	[parentWindow removeChildWindow:window];
 	[window orderOut:self];
 
-	return [tableView selectedRow];
+	return tableViewHelper.shouldCancel ? -1 : [tableView selectedRow];
 }
 
 - (void)setWidth:(CGFloat)width;

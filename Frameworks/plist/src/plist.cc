@@ -144,7 +144,7 @@ namespace plist
 			}
 			else
 			{
-				fprintf(stderr, "error parsing plist: ‘%s’\n", str.c_str());
+				os_log_error(OS_LOG_DEFAULT, "Error parsing plist: ‘%{public}s’", str.c_str());
 			}
 			CFRelease(data);
 		}
@@ -270,7 +270,7 @@ namespace plist
 
 	bool equal (any_t const& lhs, any_t const& rhs)
 	{
-	   return boost::apply_visitor(equal_helper_t(), lhs, rhs);
+		return boost::apply_visitor(equal_helper_t(), lhs, rhs);
 	}
 
 	// ================

@@ -6,10 +6,10 @@
 #import <OakAppKit/NSAlert Additions.h>
 #import <OakAppKit/OakSound.h>
 #import <OakAppKit/NSMenu Additions.h>
-#import <OakFoundation/NSDate Additions.h>
+#import <OakFoundation/OakFoundation.h>
 #import <OakFoundation/NSString Additions.h>
 #import <OakSystem/application.h>
-#import <network/network.h>
+#import <io/move_path.h>
 #import <ns/ns.h>
 #import <oak/debug.h>
 
@@ -17,7 +17,6 @@ OAK_DEBUG_VAR(SoftwareUpdate_Check);
 
 NSString* const kUserDefaultsDisableSoftwareUpdatesKey     = @"SoftwareUpdateDisablePolling";
 NSString* const kUserDefaultsSoftwareUpdateChannelKey      = @"SoftwareUpdateChannel"; // release (default), beta, nightly
-NSString* const kUserDefaultsSubmitUsageInfoKey            = @"SoftwareUpdateSubmitUsageInfo";
 NSString* const kUserDefaultsAskBeforeUpdatingKey          = @"SoftwareUpdateAskBeforeUpdating";
 NSString* const kUserDefaultsLastSoftwareUpdateCheckKey    = @"SoftwareUpdateLastPoll";
 NSString* const kUserDefaultsSoftwareUpdateSuspendUntilKey = @"SoftwareUpdateSuspendUntil";
@@ -35,7 +34,7 @@ struct shared_state_t
 
 typedef std::shared_ptr<shared_state_t> shared_state_ptr;
 
-@interface SoftwareUpdate ()
+@interface SoftwareUpdate () <OakUserDefaultsObserver>
 {
 	key_chain_t keyChain;
 	NSTimeInterval pollInterval;
@@ -66,7 +65,7 @@ typedef std::shared_ptr<shared_state_t> shared_state_ptr;
 
 + (void)initialize
 {
-	[[NSUserDefaults standardUserDefaults] registerDefaults:@{
+	[NSUserDefaults.standardUserDefaults registerDefaults:@{
 		kUserDefaultsSoftwareUpdateChannelKey: kSoftwareUpdateChannelRelease
 	}];
 }
@@ -78,8 +77,8 @@ typedef std::shared_ptr<shared_state_t> shared_state_ptr;
 		D(DBF_SoftwareUpdate_Check, bug("\n"););
 		pollInterval = 60*60;
 
-		[[[NSWorkspace sharedWorkspace] notificationCenter] addObserver:self selector:@selector(scheduleVersionCheck:) name:NSWorkspaceDidWakeNotification object:[NSWorkspace sharedWorkspace]];
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(userDefaultsDidChange:) name:NSUserDefaultsDidChangeNotification object:[NSUserDefaults standardUserDefaults]];
+		[[NSWorkspace.sharedWorkspace notificationCenter] addObserver:self selector:@selector(scheduleVersionCheck:) name:NSWorkspaceDidWakeNotification object:NSWorkspace.sharedWorkspace];
+		OakObserveUserDefaults(self);
 	}
 	return self;
 }
@@ -95,7 +94,7 @@ typedef std::shared_ptr<shared_state_t> shared_state_ptr;
 	[alert addButtonWithTitle:@"OK"];
 	[alert runModal];
 	if(alert.suppressionButton.state == NSControlStateValueOn)
-		[[NSUserDefaults standardUserDefaults] setBool:YES forKey:kUserDefaultsSoftwareUpdateDisableReadOnlyFileSystemWarningKey];
+		[NSUserDefaults.standardUserDefaults setBool:YES forKey:kUserDefaultsSoftwareUpdateDisableReadOnlyFileSystemWarningKey];
 }
 
 - (void)scheduleVersionCheck:(id)sender
@@ -106,14 +105,14 @@ typedef std::shared_ptr<shared_state_t> shared_state_ptr;
 
 	struct statfs sfsb;
 	BOOL readOnlyFileSystem = statfs([NSBundle mainBundle].bundlePath.fileSystemRepresentation, &sfsb) != 0 || (sfsb.f_flags & MNT_RDONLY);
-	BOOL disablePolling = [[NSUserDefaults standardUserDefaults] boolForKey:kUserDefaultsDisableSoftwareUpdatesKey];
+	BOOL disablePolling = [NSUserDefaults.standardUserDefaults boolForKey:kUserDefaultsDisableSoftwareUpdatesKey];
 	D(DBF_SoftwareUpdate_Check, bug("download visible %s, disable polling %s, read only file system %s → %s\n", BSTR(self.downloadWindow), BSTR(disablePolling), BSTR(readOnlyFileSystem), BSTR(!self.downloadWindow && !disablePolling && !readOnlyFileSystem)););
 	if(_downloadWindow.isWorking || disablePolling)
 		return;
 
 	if(readOnlyFileSystem)
 	{
-		if(!didShowReadOnlyFileSystemWarning && ![[NSUserDefaults standardUserDefaults] boolForKey:kUserDefaultsSoftwareUpdateDisableReadOnlyFileSystemWarningKey])
+		if(!didShowReadOnlyFileSystemWarning && ![NSUserDefaults.standardUserDefaults boolForKey:kUserDefaultsSoftwareUpdateDisableReadOnlyFileSystemWarningKey])
 		{
 			didShowReadOnlyFileSystemWarning = YES;
 			[self performSelector:@selector(showReadOnlyFileSystemWarning:) withObject:nil afterDelay:0];
@@ -122,7 +121,7 @@ typedef std::shared_ptr<shared_state_t> shared_state_ptr;
 	}
 
 	NSDate* nextCheck = [(self.lastPoll ?: [NSDate distantPast]) dateByAddingTimeInterval:pollInterval];
-	if(NSDate* suspendUntil = [[NSUserDefaults standardUserDefaults] objectForKey:kUserDefaultsSoftwareUpdateSuspendUntilKey])
+	if(NSDate* suspendUntil = [NSUserDefaults.standardUserDefaults objectForKey:kUserDefaultsSoftwareUpdateSuspendUntilKey])
 		nextCheck = [nextCheck laterDate:suspendUntil];
 
 	D(DBF_SoftwareUpdate_Check, bug("perform next check in %.1f hours\n", std::max<NSTimeInterval>(1, [nextCheck timeIntervalSinceNow])/60/60););
@@ -144,7 +143,7 @@ typedef std::shared_ptr<shared_state_t> shared_state_ptr;
 	if(_downloadWindow.isWorking)
 		return;
 
-	NSURL* url = [self.channels objectForKey:[[NSUserDefaults standardUserDefaults] stringForKey:kUserDefaultsSoftwareUpdateChannelKey]];
+	NSURL* url = [self.channels objectForKey:[NSUserDefaults.standardUserDefaults stringForKey:kUserDefaultsSoftwareUpdateChannelKey]];
 	[self checkVersionAtURL:url inBackground:YES allowRedownload:NO];
 }
 
@@ -153,7 +152,7 @@ typedef std::shared_ptr<shared_state_t> shared_state_ptr;
 	D(DBF_SoftwareUpdate_Check, bug("\n"););
 
 	BOOL isShiftDown = OakIsAlternateKeyOrMouseEvent(NSEventModifierFlagShift);
-	NSURL* url = [self.channels objectForKey:OakIsAlternateKeyOrMouseEvent(NSEventModifierFlagOption) ? kSoftwareUpdateChannelCanary : [[NSUserDefaults standardUserDefaults] stringForKey:kUserDefaultsSoftwareUpdateChannelKey]];
+	NSURL* url = [self.channels objectForKey:OakIsAlternateKeyOrMouseEvent(NSEventModifierFlagOption) ? kSoftwareUpdateChannelCanary : [NSUserDefaults.standardUserDefaults stringForKey:kUserDefaultsSoftwareUpdateChannelKey]];
 	[self checkVersionAtURL:url inBackground:NO allowRedownload:isShiftDown];
 }
 
@@ -216,7 +215,7 @@ typedef std::shared_ptr<shared_state_t> shared_state_ptr;
 				}
 				else if(version::less(to_s(version), info.version))
 				{
-					if(!backgroundFlag || [[NSUserDefaults standardUserDefaults] boolForKey:kUserDefaultsAskBeforeUpdatingKey])
+					if(!backgroundFlag || [NSUserDefaults.standardUserDefaults boolForKey:kUserDefaultsAskBeforeUpdatingKey])
 					{
 						NSAlert* alert        = [[NSAlert alloc] init];
 						alert.alertStyle      = NSAlertStyleInformational;
@@ -228,7 +227,7 @@ typedef std::shared_ptr<shared_state_t> shared_state_ptr;
 						if(choice == NSAlertFirstButtonReturn) // “Download & Install”
 							downloadAndInstall = YES;
 						else if(choice == NSAlertSecondButtonReturn) // “Later”
-							[[NSUserDefaults standardUserDefaults] setObject:[[NSDate date] dateByAddingTimeInterval:24*60*60] forKey:kUserDefaultsSoftwareUpdateSuspendUntilKey];
+							[NSUserDefaults.standardUserDefaults setObject:[[NSDate date] dateByAddingTimeInterval:24*60*60] forKey:kUserDefaultsSoftwareUpdateSuspendUntilKey];
 					}
 					else if(version::less(to_s(self.lastVersionDownloaded), info.version))
 					{
@@ -238,7 +237,7 @@ typedef std::shared_ptr<shared_state_t> shared_state_ptr;
 
 				if(downloadAndInstall)
 				{
-					BOOL interactive = !backgroundFlag || [[NSUserDefaults standardUserDefaults] boolForKey:kUserDefaultsAskBeforeUpdatingKey];
+					BOOL interactive = !backgroundFlag || [NSUserDefaults.standardUserDefaults boolForKey:kUserDefaultsAskBeforeUpdatingKey];
 					self.lastVersionDownloaded = [NSString stringWithCxxString:info.version];
 					[self downloadVersion:newVersion atURL:[NSString stringWithCxxString:info.url] interactively:interactive];
 				}
@@ -408,6 +407,6 @@ typedef std::shared_ptr<shared_state_t> shared_state_ptr;
 	keyChain.add(aSignee);
 }
 
-- (NSDate*)lastPoll                  { return [[NSUserDefaults standardUserDefaults] objectForKey:kUserDefaultsLastSoftwareUpdateCheckKey]; }
-- (void)setLastPoll:(NSDate*)newDate { [[NSUserDefaults standardUserDefaults] setObject:newDate forKey:kUserDefaultsLastSoftwareUpdateCheckKey]; }
+- (NSDate*)lastPoll                  { return [NSUserDefaults.standardUserDefaults objectForKey:kUserDefaultsLastSoftwareUpdateCheckKey]; }
+- (void)setLastPoll:(NSDate*)newDate { [NSUserDefaults.standardUserDefaults setObject:newDate forKey:kUserDefaultsLastSoftwareUpdateCheckKey]; }
 @end
