@@ -4,7 +4,7 @@
 #import <OakAppKit/NSAlert Additions.h>
 #import <OakFoundation/OakFoundation.h>
 #import <OakFoundation/NSString Additions.h>
-#import <network/OakNetworkManager.h>
+#import <network/OakDownloadManager.h>
 #import <bundles/locations.h>
 #import <bundles/query.h> // set_index
 #import <regexp/format_string.h>
@@ -107,7 +107,6 @@ static NSString* SafeBasename (NSString* name)
 		_updateBundleIndexScheduler.repeats  = YES;
 		[_updateBundleIndexScheduler scheduleWithBlock:^(NSBackgroundActivityCompletionHandler completionHandler){
 			os_activity_initiate("Update bundle index", OS_ACTIVITY_FLAG_DEFAULT, ^(){
-				os_log(OS_LOG_DEFAULT, "Try updating the bundle index");
 				[self tryUpdateBundleIndexAndCallback:^(BOOL wasUpdated){
 					os_log(OS_LOG_DEFAULT, "Newer bundle index retrieved: %{public}s", wasUpdated ? "YES" : "NO");
 					completionHandler(NSBackgroundActivityResultFinished);
@@ -119,7 +118,7 @@ static NSString* SafeBasename (NSString* name)
 
 - (void)tryUpdateBundleIndexAndCallback:(void(^)(BOOL wasUpdated))completionHandler
 {
-	[OakNetworkManager.sharedInstance downloadFileAtURL:_remoteIndexURL replacingFileAtURL:[NSURL fileURLWithPath:_remoteIndexPath] publicKeys:self.publicKeys completionHandler:^(BOOL wasUpdated, NSError* error){
+	[OakDownloadManager.sharedInstance downloadFileAtURL:_remoteIndexURL replacingFileAtURL:[NSURL fileURLWithPath:_remoteIndexPath] publicKeys:self.publicKeys completionHandler:^(BOOL wasUpdated, NSError* error){
 		path::set_attr(_remoteIndexPath.fileSystemRepresentation, "last-check", to_s(oak::date_t::now()));
 		if(!error)
 			[NSUserDefaults.standardUserDefaults setObject:[NSDate date] forKey:kUserDefaultsLastBundleUpdateCheckKey];
@@ -249,7 +248,7 @@ static NSString* SafeBasename (NSString* name)
 		os_log(OS_LOG_DEFAULT, "Download %{public}@ as %{public}@", bundle.downloadURL, destURL.path);
 
 		[progress becomeCurrentWithPendingUnitCount:1];
-		[OakNetworkManager.sharedInstance downloadArchiveAtURL:bundle.downloadURL forReplacingURL:destURL publicKeys:self.publicKeys completionHandler:^(NSURL* extractedArchiveURL, NSError* error){
+		[OakDownloadManager.sharedInstance downloadArchiveAtURL:bundle.downloadURL forReplacingURL:destURL publicKeys:self.publicKeys completionHandler:^(NSURL* extractedArchiveURL, NSError* error){
 			if(extractedArchiveURL)
 			{
 				NSError* error;

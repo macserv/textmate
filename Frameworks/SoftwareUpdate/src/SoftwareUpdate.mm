@@ -15,7 +15,7 @@
 
 OAK_DEBUG_VAR(SoftwareUpdate_Check);
 
-NSString* const kUserDefaultsDisableSoftwareUpdatesKey     = @"SoftwareUpdateDisablePolling";
+NSString* const kUserDefaultsDisableSoftwareUpdateKey      = @"SoftwareUpdateDisablePolling";
 NSString* const kUserDefaultsSoftwareUpdateChannelKey      = @"SoftwareUpdateChannel"; // release (default), beta, nightly
 NSString* const kUserDefaultsAskBeforeUpdatingKey          = @"SoftwareUpdateAskBeforeUpdating";
 NSString* const kUserDefaultsLastSoftwareUpdateCheckKey    = @"SoftwareUpdateLastPoll";
@@ -34,9 +34,8 @@ struct shared_state_t
 
 typedef std::shared_ptr<shared_state_t> shared_state_ptr;
 
-@interface SoftwareUpdate () <OakUserDefaultsObserver>
+@interface SoftwareUpdate () <DownloadWindowControllerDelegate, OakUserDefaultsObserver>
 {
-	key_chain_t keyChain;
 	NSTimeInterval pollInterval;
 
 	shared_state_ptr sharedState;
@@ -44,7 +43,6 @@ typedef std::shared_ptr<shared_state_t> shared_state_ptr;
 
 	BOOL didShowReadOnlyFileSystemWarning;
 }
-@property (nonatomic) NSDate* lastPoll;
 @property (nonatomic, readwrite, getter = isChecking) BOOL checking;
 @property (nonatomic) NSString* lastVersionDownloaded;
 @property (nonatomic) NSString* errorString;
@@ -105,7 +103,7 @@ typedef std::shared_ptr<shared_state_t> shared_state_ptr;
 
 	struct statfs sfsb;
 	BOOL readOnlyFileSystem = statfs([NSBundle mainBundle].bundlePath.fileSystemRepresentation, &sfsb) != 0 || (sfsb.f_flags & MNT_RDONLY);
-	BOOL disablePolling = [NSUserDefaults.standardUserDefaults boolForKey:kUserDefaultsDisableSoftwareUpdatesKey];
+	BOOL disablePolling = [NSUserDefaults.standardUserDefaults boolForKey:kUserDefaultsDisableSoftwareUpdateKey];
 	D(DBF_SoftwareUpdate_Check, bug("download visible %s, disable polling %s, read only file system %s → %s\n", BSTR(self.downloadWindow), BSTR(disablePolling), BSTR(readOnlyFileSystem), BSTR(!self.downloadWindow && !disablePolling && !readOnlyFileSystem)););
 	if(_downloadWindow.isWorking || disablePolling)
 		return;
@@ -120,7 +118,7 @@ typedef std::shared_ptr<shared_state_t> shared_state_ptr;
 		return;
 	}
 
-	NSDate* nextCheck = [(self.lastPoll ?: [NSDate distantPast]) dateByAddingTimeInterval:pollInterval];
+	NSDate* nextCheck = [([NSUserDefaults.standardUserDefaults objectForKey:kUserDefaultsLastSoftwareUpdateCheckKey] ?: [NSDate distantPast]) dateByAddingTimeInterval:pollInterval];
 	if(NSDate* suspendUntil = [NSUserDefaults.standardUserDefaults objectForKey:kUserDefaultsSoftwareUpdateSuspendUntilKey])
 		nextCheck = [nextCheck laterDate:suspendUntil];
 
@@ -139,7 +137,6 @@ typedef std::shared_ptr<shared_state_t> shared_state_ptr;
 
 - (void)performVersionCheck:(NSTimer*)aTimer
 {
-	D(DBF_SoftwareUpdate_Check, bug("last check was %.1f hours ago\n", [[NSDate date] timeIntervalSinceDate:self.lastPoll] / (60*60)););
 	if(_downloadWindow.isWorking)
 		return;
 
@@ -147,7 +144,7 @@ typedef std::shared_ptr<shared_state_t> shared_state_ptr;
 	[self checkVersionAtURL:url inBackground:YES allowRedownload:NO];
 }
 
-- (IBAction)checkForUpdates:(id)sender
+- (IBAction)checkForUpdate:(id)sender
 {
 	D(DBF_SoftwareUpdate_Check, bug("\n"););
 
@@ -167,8 +164,8 @@ typedef std::shared_ptr<shared_state_t> shared_state_ptr;
 		auto info = sw_update::download_info(to_s([anURL absoluteString]), &error);
 
 		dispatch_async(dispatch_get_main_queue(), ^{
+			[NSUserDefaults.standardUserDefaults setObject:[NSDate date] forKey:kUserDefaultsLastSoftwareUpdateCheckKey];
 			self.errorString = [NSString stringWithCxxString:error];
-			self.lastPoll    = [NSDate date];
 			self.checking    = NO;
 
 			if(self.errorString)
@@ -280,7 +277,7 @@ typedef std::shared_ptr<shared_state_t> shared_state_ptr;
 	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
 		shared_state_ptr state = sharedState;
 		std::string error = NULL_STR;
-		std::string path = sw_update::download_update(to_s(downloadURL), keyChain, &error, &state->progress, &state->stop);
+		std::string path = sw_update::download_update(to_s(downloadURL), &error, &state->progress, &state->stop);
 
 		dispatch_async(dispatch_get_main_queue(), ^{
 			[updateProgressTimer invalidate];
@@ -401,12 +398,4 @@ typedef std::shared_ptr<shared_state_t> shared_state_ptr;
 	_channels = someChannels;
 	[self scheduleVersionCheck:nil];
 }
-
-- (void)setSignee:(key_chain_t::key_t const&)aSignee
-{
-	keyChain.add(aSignee);
-}
-
-- (NSDate*)lastPoll                  { return [NSUserDefaults.standardUserDefaults objectForKey:kUserDefaultsLastSoftwareUpdateCheckKey]; }
-- (void)setLastPoll:(NSDate*)newDate { [NSUserDefaults.standardUserDefaults setObject:newDate forKey:kUserDefaultsLastSoftwareUpdateCheckKey]; }
 @end

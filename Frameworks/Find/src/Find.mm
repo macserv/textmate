@@ -70,7 +70,7 @@ static NSButton* OakCreateHistoryButton (NSString* toolTip)
 {
 	NSButton* res = [[NSButton alloc] initWithFrame:NSZeroRect];
 	res.bezelStyle = NSBezelStyleRoundedDisclosure;
-	res.buttonType = NSMomentaryLightButton;
+	res.buttonType = NSButtonTypeMomentaryLight;
 	res.title      = @"";
 	res.toolTip    = toolTip;
 	res.accessibilityLabel = toolTip;
@@ -681,7 +681,7 @@ static NSButton* OakCreateHistoryButton (NSString* toolTip)
 		[NSNotificationCenter.defaultCenter removeObserver:self name:NSViewFrameDidChangeNotification object:_resultsViewController.view];
 	}
 
-	[_transitionViewController transitionToView:flag ? _resultsViewController.view : nil];
+	_transitionViewController.subview = flag ? _resultsViewController.view : nil;
 	self.window.defaultButtonCell = flag ? _findAllButton.cell : _findNextButton.cell;
 }
 
@@ -1194,11 +1194,11 @@ static NSButton* OakCreateHistoryButton (NSString* toolTip)
 		self.statusString = msg;
 	}
 
-	__weak __block id observerId = [NSNotificationCenter.defaultCenter addObserverForName:OakPasteboardDidChangeNotification object:OakPasteboard.findPasteboard queue:nil usingBlock:^(NSNotification*){
+	__weak __block id token = [NSNotificationCenter.defaultCenter addObserverForName:OakPasteboardDidChangeNotification object:OakPasteboard.findPasteboard queue:nil usingBlock:^(NSNotification*){
 		self.findMatches = nil;
 		for(FFResultNode* parent in _results.children)
 			[parent.document removeAllMarksOfType:kSearchMarkIdentifier];
-		[NSNotificationCenter.defaultCenter removeObserver:observerId];
+		[NSNotificationCenter.defaultCenter removeObserver:token];
 	}];
 }
 

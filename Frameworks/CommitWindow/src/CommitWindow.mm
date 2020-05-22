@@ -163,7 +163,7 @@ static void* kOakCommitWindowIncludeItemBinding = &kOakCommitWindowIncludeItemBi
 		_cancelButton.target                    = self;
 
 		_showTableButton = [[NSButton alloc] initWithFrame:NSZeroRect];
-		_showTableButton.buttonType = NSOnOffButton;
+		_showTableButton.buttonType = NSButtonTypeOnOff;
 		_showTableButton.bezelStyle = NSBezelStyleRoundedDisclosure;
 		_showTableButton.title = @"";
 		_showTableButton.action = @selector(toggleTableView:);
@@ -889,8 +889,10 @@ static void* kOakCommitWindowIncludeItemBinding = &kOakCommitWindowIncludeItemBi
 	{
 		_connection = [NSConnection new];
 		[_connection setRootObject:self];
-		if([_connection registerName:kOakCommitWindowServerConnectionName] == NO)
-			NSLog(@"failed to setup connection ‘%@’", kOakCommitWindowServerConnectionName);
+
+		NSString* serviceName = [NSString stringWithFormat:@"%@.CommitWindow.%d", NSBundle.mainBundle.bundleIdentifier, getpid()];
+		if([_connection registerName:serviceName] == NO)
+			os_log_error(OS_LOG_DEFAULT, "Failed to setup connection ‘%@’", serviceName);
 	}
 	return self;
 }
