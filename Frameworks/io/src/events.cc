@@ -3,8 +3,6 @@
 #include <cf/cf.h>
 #include <oak/debug.h>
 
-OAK_DEBUG_VAR(FS_Events);
-
 namespace
 {
 	bool operator== (timespec const& lhs, timespec const& rhs)
@@ -71,7 +69,7 @@ namespace
 
 				FSEventStreamContext contextInfo = { 0, this, nullptr, nullptr, nullptr };
 				if(!(_stream = FSEventStreamCreate(kCFAllocatorDefault, &events_t::callback, &contextInfo, cf::wrap(std::vector<std::string>(1, _observed.path())), eventId, latency, kFSEventStreamCreateFlagNone)))
-					fprintf(stderr, "can’t observe ‘%s’\n", path.c_str());
+					os_log_error(OS_LOG_DEFAULT, "Can’t observe ‘%{public}s’", path.c_str());
 
 				_event_id = FSEventsGetCurrentEventId();
 			}
@@ -90,8 +88,6 @@ namespace
 			{
 				if(flag != _replay)
 				{
-					D(DBF_FS_Events, bug("%s, 0x%llx\n", BSTR(flag), eventId););
-
 					_replay = flag;
 					_event_id = std::max(eventId, _event_id);
 					_callback->set_replaying_history(flag, observedPath, flag ? eventId : _event_id);
@@ -140,14 +136,12 @@ namespace
 				if((*stream)->_requested.path() == path && (*stream)->_callback == cb)
 					return (void)streams.erase(stream);
 			}
-			fprintf(stderr, "*** not watching ‘%s’\n", path.c_str());
+			os_log_error(OS_LOG_DEFAULT, "Not watching ‘%{public}s’", path.c_str());
 		}
 
 		static void callback (ConstFSEventStreamRef streamRef, void* clientCallBackInfo, size_t numEvents, void* eventPaths, FSEventStreamEventFlags const eventFlags[], FSEventStreamEventId const eventIds[])
 		{
 			stream_t& stream = *static_cast<stream_t*>(clientCallBackInfo);
-			D(DBF_FS_Events, bug("%zu events\n", numEvents););
-
 			uint64_t lastEventId = 0;
 			for(size_t i = 0; i < numEvents; ++i)
 			{
@@ -160,7 +154,6 @@ namespace
 				if(path.size() > 1 && path.back() == '/')
 					path.erase(path.size()-1, 1);
 
-				D(DBF_FS_Events, bug("%zu/%zu) 0x%llx: %s%s%s%s\n", i+1, numEvents, eventIds[i], path.c_str(), (eventFlags[i] & kFSEventStreamEventFlagMustScanSubDirs) ? ", recursive" : "", (eventFlags[i] & kFSEventStreamEventFlagHistoryDone) ? ", history done" : "", stream._replay ? " (replay history)" : ""););
 				if(eventFlags[i] & kFSEventStreamEventFlagHistoryDone)
 				{
 					ASSERT(stream._replay);
@@ -233,13 +226,11 @@ namespace fs
 
 	void watch (std::string const& path, event_callback_t* callback, uint64_t eventId, CFTimeInterval latency)
 	{
-		D(DBF_FS_Events, bug("%s, %p\n", path.c_str(), callback););
 		events().watch(path, callback, eventId, latency);
 	}
 
 	void unwatch (std::string const& path, event_callback_t* callback)
 	{
-		D(DBF_FS_Events, bug("%s, %p\n", path.c_str(), callback););
 		events().unwatch(path, callback);
 	}
 

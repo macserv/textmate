@@ -18,6 +18,7 @@
 #    define a variable that ends up in build.ninja.
 require 'optparse'
 require 'shellwords'
+require 'fileutils'
 require 'set'
 
 BIN = File.dirname(__FILE__)
@@ -373,11 +374,13 @@ class Buildfile
     self.rule('run_test', {
       'command'     => '$in $test_runner_flags && touch $out',
       'description' => 'Run ‘$in’…',
+      'pool'        => 'console',
     })
 
     self.rule('always_run_test', {
       'command'     => '$in $test_runner_flags',
       'description' => 'Run ‘$in’…',
+      'pool'        => 'console',
     })
 
     self.rule('link', {
@@ -398,6 +401,7 @@ class Buildfile
     self.rule('run', {
       'command'     => '$in',
       'description' => 'Run ‘$in’…',
+      'pool'        => 'console',
     })
 
     self.rule('run_application', {
@@ -499,22 +503,27 @@ SHELL
   private
 
   def compiler_for(file)
-    Plugin.plugins_of_type(Compiler).each do |klass|
-      (klass.transforms || {}).each do |ext, dest_ext|
-        if file =~ /\b#{Regexp.escape ext}$/
-          return klass.new(self, @context, ext, ext, dest_ext)
-        end
-      end
+    candidates = []
 
-      (klass.extensions || {}).each do |canonical_ext, extensions|
+    Plugin.plugins_of_type(Compiler).each do |klass|
+      klass.transforms.each do |ext, dest_ext|
+        if file =~ /\b#{Regexp.escape ext}$/
+          candidates << { class: klass, ext: ext, dest_ext: dest_ext }
+        end
+      end unless klass.transforms.nil?
+
+      klass.extensions.each do |canonical_ext, extensions|
         extensions.each do |ext|
           if file =~ /\b#{Regexp.escape ext}$/
-            return klass.new(self, @context, ext, canonical_ext, klass.transforms[canonical_ext])
+            candidates << { class: klass, ext: ext, dest_ext: klass.transforms[canonical_ext], canonical_ext: canonical_ext }
           end
         end
-      end
+      end unless klass.extensions.nil?
     end
-    nil
+
+    if match = candidates.max { |lhs, rhs| lhs[:ext].length <=> rhs[:ext].length }
+      match[:class].new(self, @context, match[:ext], match[:canonical_ext] || match[:ext], match[:dest_ext])
+    end
   end
 end
 
@@ -596,11 +605,11 @@ class Compiler < Plugin
 end
 
 class CompileRagel < Compiler
-  transforms '.rl' => '.cc'
+  transforms '.rl' => '.cc', '.mm.rl' => '.mm', '.cc.rl' => '.cc'
 
   def setup(buildfile, context)
     buildfile.rule('gen_ragel', {
-      'command'     => 'ragel -o $out $in',
+      'command'     => 'ragel $args -o $out $in',
       'description' => 'Generate source from ‘$in’…',
     })
   end
@@ -608,7 +617,7 @@ class CompileRagel < Compiler
   def transform(asset, buildfile)
     config = { 'FLAGS' => Shellwords.shelljoin([ '-iquote', File.dirname(asset.file) ]) }
     new_asset = self.derive_asset(asset, buildfile.dir, config)
-    buildfile.build('gen_ragel', asset.file, new_asset.file)
+    buildfile.build('gen_ragel', asset.file, new_asset.file, asset.context['RAGEL_FLAGS'])
     [ new_asset ]
   end
 end
@@ -924,6 +933,7 @@ if __FILE__ == $PROGRAM_NAME
 
     cleaner = CleanupTargets.new(outfile, builddir)
 
+    FileUtils.mkdir_p(builddir)
     File.write("#{builddir}/build.ninja", buildfile.to_s)
     File.write("#{builddir}/build.ninja.d", "build.ninja: #{dependencies.sort.map { |dep| dep.gsub(/ /, '\\ ') }.join(" \\\n  ")}\n")
 

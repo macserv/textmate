@@ -37,7 +37,7 @@
 @implementation OakDocumentPrintableView
 + (void)initialize
 {
-	[[NSUserDefaults standardUserDefaults] registerDefaults:@{
+	[NSUserDefaults.standardUserDefaults registerDefaults:@{
 		@"OakPrintThemeUUID":       @(kMacClassicThemeUUID),
 		@"OakPrintFontSize":        @(11),
 		@"OakPrintHeaderAndFooter": @NO,
@@ -98,7 +98,7 @@
 {
 	NSEraseRect(aRect);
 	if(![NSGraphicsContext currentContextDrawingToScreen] && layout)
-		layout->draw((CGContextRef)[[NSGraphicsContext currentContext] graphicsPort], aRect, [self isFlipped], /* selection: */ ng::ranges_t(), /* highlight: */ ng::ranges_t(), /* draw background: */ false);
+		layout->draw(NSGraphicsContext.currentContext.CGContext, aRect, [self isFlipped], /* selection: */ ng::ranges_t(), /* highlight: */ ng::ranges_t(), /* draw background: */ false);
 }
 
 - (void)updateLayout
@@ -219,7 +219,7 @@
 	{
 		NSPrintInfo* info = [self representedObject];
 		[[info dictionary] setObject:to_ns(themeUUIDs[anIndex]) forKey:@"OakPrintThemeUUID"];
-		[[NSUserDefaults standardUserDefaults] setObject:to_ns(themeUUIDs[anIndex]) forKey:@"OakPrintThemeUUID"];
+		[NSUserDefaults.standardUserDefaults setObject:to_ns(themeUUIDs[anIndex]) forKey:@"OakPrintThemeUUID"];
 	}
 }
 
@@ -241,7 +241,7 @@
 {
 	NSPrintInfo* info = [self representedObject];
 	[[info dictionary] setObject:@(flag) forKey:NSPrintHeaderAndFooter];
-	[[NSUserDefaults standardUserDefaults] setObject:@(flag) forKey:@"OakPrintHeaderAndFooter"];
+	[NSUserDefaults.standardUserDefaults setObject:@(flag) forKey:@"OakPrintHeaderAndFooter"];
 }
 
 - (BOOL)printHeaderAndFooter
@@ -253,7 +253,7 @@
 {
 	NSPrintInfo* info = [self representedObject];
 	[[info dictionary] setObject:size forKey:@"OakPrintFontSize"];
-	[[NSUserDefaults standardUserDefaults] setObject:size forKey:@"OakPrintFontSize"];
+	[NSUserDefaults.standardUserDefaults setObject:size forKey:@"OakPrintFontSize"];
 }
 
 - (NSNumber*)printFontSize
