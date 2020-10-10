@@ -17,7 +17,7 @@ function error () { printf >&2 "%s\n\nPlease see README.md for build instruction
 # = Application version =
 # =======================
 
-ver=$(curl -sf "${rest_api}/releases/nightly/version")${tag:-+git.$(git rev-parse --short HEAD)}
+ver=$(git describe --tags)
 
 # ===============================
 # = Check if boost is installed =
