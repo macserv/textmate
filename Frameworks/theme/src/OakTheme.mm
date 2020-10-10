@@ -20,6 +20,7 @@ typedef NS_OPTIONS(NSUInteger, OakThemeStyleOptions) {
 @property (nonatomic, readonly) NSString* backgroundColorString;
 @property (nonatomic, readonly) NSString* caretColorString;
 @property (nonatomic, readonly) NSString* selectionColorString;
+@property (nonatomic, readonly) NSString* lineHighlightColorString;
 @property (nonatomic, readonly) NSString* invisiblesColorString;
 @property (nonatomic, readonly) OakThemeStyleOptions options;
 @property (nonatomic, readonly) OakThemeStyleOptions optionsMask;
@@ -74,11 +75,12 @@ static CGFloat ParseFontSize (NSString* fontSizeString)
 		_fontName = [NSFont userFixedPitchFontOfSize:0].fontName;
 		_fontSize = [NSFont userFixedPitchFontOfSize:0].pointSize;
 
-		_foregroundColorString = @"textColor";
-		_backgroundColorString = @"textBackgroundColor";
-		_caretColorString      = @"textColor";
-		_selectionColorString  = @"selectedTextBackgroundColor";
-		_invisiblesColorString = @"quaternaryLabelColor";
+		_foregroundColorString    = @"textColor";
+		_backgroundColorString    = @"textBackgroundColor";
+		_caretColorString         = @"textColor";
+		_selectionColorString     = @"selectedTextBackgroundColor";
+		_lineHighlightColorString = @"textBackgroundColor";
+		_invisiblesColorString    = @"quaternaryLabelColor";
 	}
 	return self;
 }
@@ -90,11 +92,12 @@ static CGFloat ParseFontSize (NSString* fontSizeString)
 		_fontName = [self stringForSetting:@"fontName" inScope:scope];
 		_fontSize = ParseFontSize([self stringForSetting:@"fontSize" inScope:scope]);
 
-		_foregroundColorString = [self stringForSetting:@"foreground" inScope:scope];
-		_backgroundColorString = [self stringForSetting:@"background" inScope:scope];
-		_caretColorString      = [self stringForSetting:@"caret" inScope:scope];
-		_selectionColorString  = [self stringForSetting:@"selection" inScope:scope];
-		_invisiblesColorString = [self stringForSetting:@"invisibles" inScope:scope];
+		_foregroundColorString    = [self stringForSetting:@"foreground"    inScope:scope];
+		_backgroundColorString    = [self stringForSetting:@"background"    inScope:scope];
+		_caretColorString         = [self stringForSetting:@"caret"         inScope:scope];
+		_selectionColorString     = [self stringForSetting:@"selection"     inScope:scope];
+		_lineHighlightColorString = [self stringForSetting:@"lineHighlight" inScope:scope];
+		_invisiblesColorString    = [self stringForSetting:@"invisibles"    inScope:scope];
 
 		static struct { NSString* key; OakThemeStyleOptions flag; } const options[] = {
 			{ @"bold",          OakThemeStyleBold          },
@@ -133,11 +136,12 @@ static CGFloat ParseFontSize (NSString* fontSizeString)
 			_fontName = settings[@"fontName"];
 			_fontSize = ParseFontSize(settings[@"fontSize"]);
 
-			_foregroundColorString = settings[@"foreground"];
-			_backgroundColorString = settings[@"background"];
-			_caretColorString      = settings[@"caret"];
-			_selectionColorString  = settings[@"selection"];
-			_invisiblesColorString = settings[@"invisibles"];
+			_foregroundColorString    = settings[@"foreground"];
+			_backgroundColorString    = settings[@"background"];
+			_caretColorString         = settings[@"caret"];
+			_selectionColorString     = settings[@"selection"];
+			_lineHighlightColorString = settings[@"lineHighlight"];
+			_invisiblesColorString    = settings[@"invisibles"];
 
 			if(NSNumber* misspelled = settings[@"misspelled"])
 			{
@@ -182,17 +186,18 @@ static CGFloat ParseFontSize (NSString* fontSizeString)
 {
 	NSMutableDictionary* info = [NSMutableDictionary dictionary];
 
-	info[@"name"]            = _name;
-	info[@"scopeSelector"]   = to_ns(to_s(_scopeSelector));
-	info[@"fontName"]        = _fontName;
-	info[@"fontSize"]        = _fontSize != 0 ? @(_fontSize) : nil;
-	info[@"foregroundColor"] = _foregroundColorString;
-	info[@"backgroundColor"] = _backgroundColorString;
-	info[@"caretColor"]      = _caretColorString;
-	info[@"selectionColor"]  = _selectionColorString;
-	info[@"invisiblesColor"] = _invisiblesColorString;
-	info[@"options"]         = [NSString stringWithFormat:@"%02lx", _options];
-	info[@"optionsMask"]     = [NSString stringWithFormat:@"%02lx", _optionsMask];
+	info[@"name"]               = _name;
+	info[@"scopeSelector"]      = to_ns(to_s(_scopeSelector));
+	info[@"fontName"]           = _fontName;
+	info[@"fontSize"]           = _fontSize != 0 ? @(_fontSize) : nil;
+	info[@"foregroundColor"]    = _foregroundColorString;
+	info[@"backgroundColor"]    = _backgroundColorString;
+	info[@"caretColor"]         = _caretColorString;
+	info[@"selectionColor"]     = _selectionColorString;
+	info[@"lineHighlightColor"] = _lineHighlightColorString;
+	info[@"invisiblesColor"]    = _invisiblesColorString;
+	info[@"options"]            = [NSString stringWithFormat:@"%02lx", _options];
+	info[@"optionsMask"]        = [NSString stringWithFormat:@"%02lx", _optionsMask];
 
 	return [NSString stringWithFormat:@"<%@: %@>", self.class, info];
 }
@@ -208,6 +213,7 @@ static CGFloat ParseFontSize (NSString* fontSizeString)
 	NSColor* _backgroundColor;
 	NSColor* _caretColor;
 	NSColor* _selectionColor;
+	NSColor* _lineHighlightColor;
 	NSColor* _invisiblesColor;
 }
 @property (nonatomic, readonly) NSArray<OakThemeRawStyle*>* rawStyles;
@@ -255,15 +261,16 @@ static CGFloat ParseFontSize (NSString* fontSizeString)
 - (NSString*)description
 {
 	NSMutableDictionary* info = [NSMutableDictionary dictionary];
-	info[@"foregroundColor"] = self.foregroundColor;
-	info[@"backgroundColor"] = self.backgroundColor;
-	info[@"caretColor"]      = self.caretColor;
-	info[@"selectionColor"]  = self.selectionColor;
-	info[@"invisiblesColor"] = self.invisiblesColor;
-	info[@"font"]            = self.font;
-	info[@"underlined"]      = self.underlined    ? @"YES" : nil;
-	info[@"strikethrough"]   = self.strikethrough ? @"YES" : nil;
-	info[@"misspelled"]      = self.misspelled    ? @"YES" : nil;
+	info[@"foregroundColor"]    = self.foregroundColor;
+	info[@"backgroundColor"]    = self.backgroundColor;
+	info[@"caretColor"]         = self.caretColor;
+	info[@"selectionColor"]     = self.selectionColor;
+	info[@"lineHighlightColor"] = self.lineHighlightColor;
+	info[@"invisiblesColor"]    = self.invisiblesColor;
+	info[@"font"]               = self.font;
+	info[@"underlined"]         = self.underlined    ? @"YES" : nil;
+	info[@"strikethrough"]      = self.strikethrough ? @"YES" : nil;
+	info[@"misspelled"]         = self.misspelled    ? @"YES" : nil;
 	return [NSString stringWithFormat:@"<%@: %@>", self.class, info];
 }
 
@@ -327,6 +334,13 @@ static CGFloat ParseFontSize (NSString* fontSizeString)
 	if(!_selectionColor)
 		_selectionColor = [self makeColorWithBlending:NO block:^(OakThemeRawStyle* style){ return style.selectionColorString; }];
 	return _selectionColor;
+}
+
+- (NSColor*)lineHighlightColor
+{
+	if(!_lineHighlightColor)
+		_lineHighlightColor = [self makeColorWithBlending:NO block:^(OakThemeRawStyle* style){ return style.lineHighlightColorString; }];
+	return _lineHighlightColor;
 }
 
 - (NSColor*)invisiblesColor

@@ -18,6 +18,7 @@
 @property (nonatomic, readonly) NSColor* backgroundColor;
 @property (nonatomic, readonly) NSColor* caretColor;
 @property (nonatomic, readonly) NSColor* selectionColor;
+@property (nonatomic, readonly) NSColor* lineHighlightColor;
 @property (nonatomic, readonly) NSColor* invisiblesColor;
 @property (nonatomic, readonly) NSFont* font;
 @property (nonatomic, readonly) NSFontTraitMask fontTraits;
