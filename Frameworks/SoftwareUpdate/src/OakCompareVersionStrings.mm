@@ -1,4 +1,4 @@
-#include "version.h"
+#import "SoftwareUpdate.h"
 
 static bool is_numeric (std::string const& str)
 {
@@ -81,3 +81,16 @@ namespace version
 	}
 
 } /* version */
+
+NSComparisonResult OakCompareVersionStrings (NSString* lhsString, NSString* rhsString)
+{
+	std::string const lhs = lhsString ? lhsString.UTF8String : NULL_STR;
+	std::string const rhs = rhsString ? rhsString.UTF8String : NULL_STR;
+
+	if(version::less(lhs, rhs))
+		return NSOrderedAscending;
+	else if(version::less(rhs, lhs))
+		return NSOrderedDescending;
+	else
+		return NSOrderedSame;
+}

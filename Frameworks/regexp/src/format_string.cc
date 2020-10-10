@@ -11,12 +11,8 @@
 #include <text/format.h>
 #include <cf/cf.h>
 
-OAK_DEBUG_VAR(FormatString);
-
 struct expand_visitor : boost::static_visitor<void>
 {
-	WATCH_LEAKS(expand_visitor);
-
 	std::function<std::optional<std::string>(std::string const&)> variable;
 	snippet::run_command_callback_t* callback;
 	std::string res;
@@ -384,7 +380,6 @@ namespace format_string
 
 	void format_string_t::init (std::string const& str, char const* stopChars)
 	{
-		D(DBF_FormatString, bug("%s\n", str.c_str()););
 		parser::nodes_t const& n = parser::parse_format_string(str, stopChars, &_length);
 		nodes = std::make_shared<parser::nodes_t>(n);
 	}
@@ -403,8 +398,6 @@ namespace format_string
 
 	std::string replace (std::string const& src, regexp::pattern_t const& ptrn, format_string_t const& format, bool repeat, std::map<std::string, std::string> const& variables)
 	{
-		D(DBF_FormatString, bug("%s\n", src.c_str()););
-
 		auto getVariable = [&variables](std::string const& name) -> std::optional<std::string> {
 			auto it = variables.find(name);
 			return it != variables.end() ? it->second : std::optional<std::string>();

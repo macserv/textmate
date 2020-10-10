@@ -20,8 +20,6 @@
 #import <OakAppKit/NSMenuItem Additions.h>
 #import <BundleMenu/BundleMenu.h>
 
-OAK_DEBUG_VAR(OakDocumentView);
-
 static NSString* const kUserDefaultsLineNumberScaleFactorKey = @"lineNumberScaleFactor";
 static NSString* const kUserDefaultsLineNumberFontNameKey    = @"lineNumberFontName";
 
@@ -30,8 +28,6 @@ static NSString* const kFoldingsColumnIdentifier  = @"foldings";
 
 @interface OakDocumentView () <NSAccessibilityGroup, GutterViewDelegate, GutterViewColumnDataSource, GutterViewColumnDelegate, OTVStatusBarDelegate>
 {
-	OBJC_WATCH_LEAKS(OakDocumentView);
-
 	NSScrollView* gutterScrollView;
 	GutterView* gutterView;
 	NSMutableDictionary* gutterImages;
@@ -54,7 +50,6 @@ static NSString* const kFoldingsColumnIdentifier  = @"foldings";
 @implementation OakDocumentView
 - (id)initWithFrame:(NSRect)aRect
 {
-	D(DBF_OakDocumentView, bug("%s\n", [NSStringFromRect(aRect) UTF8String]););
 	if(self = [super initWithFrame:aRect])
 	{
 		self.accessibilityRole  = NSAccessibilityGroupRole;
@@ -96,7 +91,7 @@ static NSString* const kFoldingsColumnIdentifier  = @"foldings";
 		_statusBar.target = self;
 
 		OakAddAutoLayoutViewsToSuperview(@[ gutterScrollView, gutterDividerView, textScrollView, _statusBar ], self);
-		OakSetupKeyViewLoop(@[ self, _textView, _statusBar ], NO);
+		OakSetupKeyViewLoop(@[ self, _textView, _statusBar ]);
 
 		self.document = [OakDocument documentWithString:@"" fileType:@"text.plain" customName:@"placeholder"];
 
@@ -379,7 +374,6 @@ static NSString* const kFoldingsColumnIdentifier  = @"foldings";
 
 - (IBAction)toggleLineNumbers:(id)sender
 {
-	D(DBF_OakDocumentView, bug("show line numbers %s\n", BSTR([gutterView visibilityForColumnWithIdentifier:GVLineNumbersColumnIdentifier])););
 	BOOL isVisibleFlag = ![gutterView visibilityForColumnWithIdentifier:GVLineNumbersColumnIdentifier];
 	[gutterView setVisibility:isVisibleFlag forColumnWithIdentifier:GVLineNumbersColumnIdentifier];
 	if(isVisibleFlag)
@@ -629,7 +623,6 @@ static NSString* const kFoldingsColumnIdentifier  = @"foldings";
 
 - (IBAction)takeTabSizeFrom:(id)sender
 {
-	D(DBF_OakDocumentView, bug("\n"););
 	ASSERT([sender respondsToSelector:@selector(tag)]);
 	if([sender tag] > 0)
 		self.tabSize = [sender tag];
@@ -637,14 +630,12 @@ static NSString* const kFoldingsColumnIdentifier  = @"foldings";
 
 - (IBAction)setIndentWithSpaces:(id)sender
 {
-	D(DBF_OakDocumentView, bug("\n"););
 	_textView.softTabs = YES;
 	settings_t::set(kSettingsSoftTabsKey, true, to_s(self.document.fileType));
 }
 
 - (IBAction)setIndentWithTabs:(id)sender
 {
-	D(DBF_OakDocumentView, bug("\n"););
 	_textView.softTabs = NO;
 	settings_t::set(kSettingsSoftTabsKey, false, to_s(self.document.fileType));
 }

@@ -46,6 +46,12 @@ static NSString* const kMASPreferencesSelectedViewKey = @"MASPreferences Selecte
 	self.title = newViewController.title ?: @"Preferences";
 
 	self.subview = newViewController.view;
+
+	BOOL setNewFirstResponder = self.view.window.firstResponder == self.view.window;
+	[self.view.window recalculateKeyViewLoop];
+	NSView* newKeyView = newViewController.view.nextValidKeyView;
+	if(setNewFirstResponder && newKeyView && [newKeyView isDescendantOf:newViewController.view])
+		[self.view.window makeFirstResponder:newKeyView];
 }
 
 - (NSViewController <PreferencesPaneProtocol>*)viewControllerForIdentifier:(NSString*)viewIdentifier
@@ -107,11 +113,10 @@ static NSString* const kMASPreferencesSelectedViewKey = @"MASPreferences Selecte
 			hasToolbarImages = hasToolbarImages || [viewController respondsToSelector:@selector(toolbarItemImage)];
 		toolbar.displayMode = hasToolbarImages ? NSToolbarDisplayModeIconAndLabel : NSToolbarDisplayModeLabelOnly;
 
-		window.autorecalculatesKeyViewLoop = NO;
-		window.collectionBehavior          = NSWindowCollectionBehaviorMoveToActiveSpace|NSWindowCollectionBehaviorFullScreenAuxiliary;
-		window.delegate                    = self;
-		window.hidesOnDeactivate           = NO;
-		window.toolbar                     = toolbar;
+		window.collectionBehavior = NSWindowCollectionBehaviorMoveToActiveSpace|NSWindowCollectionBehaviorFullScreenAuxiliary;
+		window.delegate           = self;
+		window.hidesOnDeactivate  = NO;
+		window.toolbar            = toolbar;
 	}
 	return self;
 }

@@ -1,5 +1,6 @@
-SOURCES      = src/*.{cc,mm}
-EXPORT       = src/SoftwareUpdate.h
+SOURCES      = src/*.mm
+TESTS        = tests/t_*.mm
+EXPORT       = src/*.h
 CP_Resources = resources/*
-LINK        += OakAppKit OakFoundation OakSystem io network ns plist text version
+LINK        += OakAppKit
 FRAMEWORKS   = Cocoa WebKit

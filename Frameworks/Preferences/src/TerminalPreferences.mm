@@ -5,11 +5,11 @@
 #import <OakAppKit/NSMenu Additions.h>
 #import <OakFoundation/NSString Additions.h>
 #import <OakFoundation/OakStringListTransformer.h>
+#import <SoftwareUpdate/SoftwareUpdate.h> // OakCompareVersionStrings()
 #import <io/path.h>
 #import <io/exec.h>
 #import <ns/ns.h>
 #import <regexp/format_string.h>
-#import <version/version.h>
 #import <bundles/bundles.h>
 #import <oak/compat.h>
 
@@ -338,7 +338,7 @@ static bool uninstall_mate (std::string const& path)
 			if(regexp::match_t const& m = regexp::search("\\Amate ([\\d.]+)", res))
 			{
 				NSString* newVersion = [NSString stringWithCxxString:m[1]];
-				if(version::less(to_s(oldVersion), to_s(newVersion)))
+				if(OakCompareVersionStrings(oldVersion, newVersion) == NSOrderedAscending)
 				{
 					if(cp_requires_admin(to_s(oldMate)))
 					{

@@ -46,9 +46,27 @@
 		newView.alphaValue = 0;
 
 		[self.view addSubview:newView];
-		self.view.nextKeyView = newView;
-
 		[_hostedSubviews addObject:newView];
+	}
+
+	// Only update the key view loop if we are part of it
+	if(self.view.nextKeyView)
+	{
+		std::set<NSView*> avoidLoop;
+
+		NSView* lastOldView = self.view;
+		for(NSView* view = _subview; view && [view isDescendantOf:self.view] && avoidLoop.insert(view).second; view = view.nextKeyView)
+			lastOldView = view;
+
+		NSView* lastNewView;
+		for(NSView* view = newView; view && [view isDescendantOf:self.view] && avoidLoop.insert(view).second; view = view.nextKeyView)
+			lastNewView = view;
+
+		if(newView)
+			lastNewView.nextKeyView = lastOldView.nextKeyView;
+		self.view.nextKeyView = newView ?: lastOldView.nextKeyView;
+		if(lastOldView != self.view)
+			lastOldView.nextKeyView = nil;
 	}
 
 	NSSize oldSize  = self.view.frame.size;
@@ -117,23 +135,6 @@
 					[newView.trailingAnchor constraintEqualToAnchor:newView.superview.trailingAnchor],
 				];
 				[NSLayoutConstraint activateConstraints:_viewFrameConstraints];
-
-				[window recalculateKeyViewLoop];
-				if(window && window.firstResponder == window)
-				{
-					// selectKeyViewFollowingView: will select toolbar buttons when Full Keyboard Access is enabled
-
-					std::set<NSView*> avoidLoops;
-					for(NSView* keyView = newView; keyView && avoidLoops.find(keyView) == avoidLoops.end(); keyView = keyView.nextKeyView)
-					{
-						if(keyView.canBecomeKeyView)
-						{
-							[window makeFirstResponder:keyView];
-							break;
-						}
-						avoidLoops.insert(keyView);
-					}
-				}
 			}
 			else
 			{

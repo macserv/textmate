@@ -301,6 +301,7 @@ static NSDictionary* globs_for_path (std::string const& path)
 		[self updateScrollViewInsets];
 
 		OakSetupKeyViewLoop(@[ self.searchField, _scopeBar.view ]);
+		self.window.initialFirstResponder = self.searchField;
 
 		self.sourceIndex = [NSUserDefaults.standardUserDefaults integerForKey:kUserDefaultsFileChooserSourceIndexKey];
 		[self updateWindowTitle];

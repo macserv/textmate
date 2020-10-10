@@ -81,8 +81,6 @@ static void show_command_error (std::string const& message, oak::uuid_t const& u
 
 @interface DocumentWindowController () <NSWindowDelegate, NSTouchBarDelegate, OakTabBarViewDelegate, OakTabBarViewDataSource, OakTextViewDelegate, OakUserDefaultsObserver, FileBrowserDelegate, FindDelegate>
 {
-	OBJC_WATCH_LEAKS(DocumentWindowController);
-
 	NSMutableSet<NSUUID*>*                 _stickyDocumentIdentifiers;
 
 	scm::info_ptr                          _projectSCMInfo;
@@ -216,7 +214,6 @@ static NSArray* const kObservedKeyPaths = @[ @"arrayController.arrangedObjects.p
 		[LicenseManager.sharedInstance decorateWindow:self.window];
 
 		OakAddAutoLayoutViewsToSuperview(@[ self.layoutView ], self.window.contentView);
-		OakSetupKeyViewLoop(@[ self.layoutView ], NO);
 		self.window.initialFirstResponder = self.textView;
 
 		[self.window.contentView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|[view]|" options:0 metrics:nil views:@{ @"view": self.layoutView }]];

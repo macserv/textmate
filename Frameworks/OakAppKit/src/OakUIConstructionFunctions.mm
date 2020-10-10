@@ -291,42 +291,26 @@ NSView* OakCreateNSBoxSeparator ()
 	return box;
 }
 
-void OakSetupKeyViewLoop (NSArray* superviews, BOOL setFirstResponder)
+void OakSetupKeyViewLoop (NSArray<NSView*>* superviews)
 {
-	std::set<id> seen;
+	std::set<NSView*> seen;
 	for(NSView* candidate in superviews)
 		seen.insert(candidate);
 
-	NSMutableArray* views = [NSMutableArray new];
+	NSMutableArray<NSView*>* views = [NSMutableArray new];
 	for(NSView* view in superviews)
 	{
-		if([view isEqual:[NSNull null]])
-			continue;
-
 		[views addObject:view];
 		NSView* subview = view;
 		while((subview = subview.nextKeyView) && [subview isDescendantOf:view] && seen.insert(subview).second)
 			[views addObject:subview];
 	}
 
-	if(views.count == 1)
-	{
-		[views.firstObject setNextKeyView:nil];
-	}
-	else
-	{
-		for(size_t i = 0; i < views.count; ++i)
-			[views[i] setNextKeyView:views[(i + 1) % views.count]];
-	}
-
-	if(setFirstResponder)
-	{
-		if(NSView* view = views.firstObject)
-			view.window.initialFirstResponder = view;
-	}
+	for(NSUInteger i = 0; i < views.count; ++i)
+		views[i].nextKeyView = views.count == 1 ? nil : views[(i+1) % views.count];
 }
 
-void OakAddAutoLayoutViewsToSuperview (NSArray* views, NSView* superview)
+void OakAddAutoLayoutViewsToSuperview (NSArray<NSView*>* views, NSView* superview)
 {
 	for(NSView* view in views)
 	{

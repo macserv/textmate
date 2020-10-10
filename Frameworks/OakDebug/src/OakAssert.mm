@@ -5,7 +5,7 @@
 @interface OakExceptionHandlerDelegate : NSObject { }
 @end
 
-PUBLIC std::string OakStackDump (int linesToSkip)
+std::string OakStackDump (int linesToSkip)
 {
 	void* callstack[256];
 	int frames = backtrace(callstack, sizeofA(callstack));
@@ -96,7 +96,7 @@ namespace oak
 
 void OakPrintBadAssertion (char const* lhs, char const* op, char const* rhs, std::string const& realLHS, char const* realOp, std::string const& realRHS, char const* file, int line)
 {
-	fprintf(stderr, "%s:%d: Expected (%s %s %s), found (%s %s %s)\n%s\n", file, line, lhs, op, rhs, realLHS.c_str(), realOp, realRHS.c_str(), OakStackDump(2).c_str());
+	os_log_error(OS_LOG_DEFAULT, "%{public}s:%d: Expected (%{public}s %{public}s %{public}s), found (%{public}s %{public}s %{public}s)\n%{public}s\n", file, line, lhs, op, rhs, realLHS.c_str(), realOp, realRHS.c_str(), OakStackDump(2).c_str());
 	_exit(EXIT_FAILURE);
 }
 
@@ -119,7 +119,7 @@ void OakPrintBadAssertion (char const* lhs, char const* op, char const* rhs, std
 {
 	if([[exception name] isEqualToString:@"FSExecutionErrorException"])
 		return NO;
-	bug(" \n*** %s: %s\n", [[exception name] UTF8String], [[exception reason] UTF8String]);
+	os_log_error(OS_LOG_DEFAULT, "%@: %@\n", exception.name, exception.reason);
 	abort();
 	return YES;
 }
@@ -143,10 +143,10 @@ void OakBadAssertion (char const* name, char const* format, ...)
 		free(buf);
 	}
 
-	bug("------------------------------------------------------------\n"
-	    "ASSERTION FAILURE: %s\n"
-	    "%s"
+	os_log_error(OS_LOG_DEFAULT, "------------------------------------------------------------\n"
+	    "ASSERTION FAILURE: %{public}s\n"
+	    "%{public}s"
 	    "------------------------------------------------------------\n"
-	    "%s", name, info.c_str(), OakStackDump(2).c_str());
+	    "%{public}s", name, info.c_str(), OakStackDump(2).c_str());
 	_exit(EXIT_FAILURE);
 }

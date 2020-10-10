@@ -28,8 +28,6 @@
 #import <io/path.h>
 #import <settings/settings.h>
 
-OAK_DEBUG_VAR(Find_Base);
-
 static NSString* const kUserDefaultsFolderOptionsKey               = @"Folder Search Options";
 static NSString* const kUserDefaultsFindResultsHeightKey           = @"findResultsHeight";
 static NSString* const kUserDefaultsDefaultFindGlobsKey            = @"defaultFindInFolderGlobs";
@@ -218,6 +216,7 @@ static NSButton* OakCreateHistoryButton (NSString* toolTip)
 		[NSLayoutConstraint activateConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|[options]-[results]-[status]-[buttons]-|" options:NSLayoutFormatAlignAllLeading|NSLayoutFormatAlignAllTrailing metrics:nil views:views]];
 
 		window.contentView = contentView;
+		window.initialFirstResponder = _findTextFieldViewController.view;
 		window.defaultButtonCell = _findNextButton.cell;
 
 		// setup find/replace strings/options
@@ -413,7 +412,7 @@ static NSButton* OakCreateHistoryButton (NSString* toolTip)
 		[_actionButtonsStackView setHuggingPriority:NSLayoutPriorityDefaultHigh-1 forOrientation:NSLayoutConstraintOrientationVertical];
 		_actionButtonsStackView.edgeInsets = { .left = 20, .right = 20 };
 
-		OakSetupKeyViewLoop(@[ _actionButtonsStackView, _findAllButton, replaceAllButton, replaceButton, replaceAndFindButton, findPreviousButton, _findNextButton ], NO);
+		OakSetupKeyViewLoop(@[ _actionButtonsStackView, _findAllButton, replaceAllButton, replaceButton, replaceAndFindButton, findPreviousButton, _findNextButton ]);
 	}
 	return _actionButtonsStackView;
 }
@@ -1322,7 +1321,7 @@ static NSButton* OakCreateHistoryButton (NSString* toolTip)
 	}
 
 	[NSPasteboard.generalPasteboard clearContents];
-	[NSPasteboard.generalPasteboard writeObjects:array];
+	[NSPasteboard.generalPasteboard writeObjects:@[ [array componentsJoinedByString:@"\n"] ]];
 }
 
 - (void)copyEntireLines:(BOOL)entireLines withFilename:(BOOL)withFilename
@@ -1346,7 +1345,7 @@ static NSButton* OakCreateHistoryButton (NSString* toolTip)
 	}
 
 	[NSPasteboard.generalPasteboard clearContents];
-	[NSPasteboard.generalPasteboard writeObjects:array];
+	[NSPasteboard.generalPasteboard writeObjects:@[ [array componentsJoinedByString:@"\n"] ]];
 }
 
 - (void)copy:(id)sender                          { [self copyEntireLines:YES withFilename:NO ]; }

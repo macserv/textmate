@@ -3,10 +3,7 @@
 #include "pipe.h"
 #include <text/format.h>
 #include <oak/datatypes.h>
-#include <oak/debug/OakDebugLog.h>
 #include <crash/info.h>
-
-OAK_DEBUG_VAR(IO_Exec);
 
 namespace io
 {
@@ -137,7 +134,6 @@ namespace io
 
 		dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
 		dispatch_release(group);
-		D(DBF_IO_Exec, if(!error.empty()) bug("error from command: “%s”\n", error.c_str()););
 		return success ? output : NULL_STR;
 	}
 

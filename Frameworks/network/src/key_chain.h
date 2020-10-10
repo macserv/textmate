@@ -1,17 +1,12 @@
 #ifndef KEY_CHAIN_H_VALL5FR2
 #define KEY_CHAIN_H_VALL5FR2
 
-#include <oak/misc.h>
 #include <oak/debug.h>
 
-struct PUBLIC key_chain_t
+struct key_chain_t
 {
-	WATCH_LEAKS(key_chain_t);
-
-	struct PUBLIC key_t
+	struct key_t
 	{
-		WATCH_LEAKS(key_chain_t::key_t);
-
 		key_t (std::string const& identity, std::string const& key_data);
 		key_t (key_t const& rhs);
 		key_t& operator= (key_t const& rhs) = delete;
